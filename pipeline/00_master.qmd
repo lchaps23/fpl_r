@@ -24,7 +24,7 @@ current_season <- "25_26"
 # 1. Cleaning & Validation
 
 ```{r}
-#| label: 01_cleaning.qmd
+#| label: 01_cleaning.R
 
 source(here("pipeline/01_cleaning.R"))
 
@@ -118,6 +118,11 @@ for (name in names(write_results)) {
 
 # 3. Aggregation
 
+```{r}
+#| label: 02_aggregation.R
 
+source(here("pipeline/02_aggregation.R"))
+
+```
 
 # 4. Season Reports
