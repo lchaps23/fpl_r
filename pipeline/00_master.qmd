@@ -17,7 +17,7 @@ library(here)
 ```{r}
 #| label: parameters
 
-season_id <- "25_26"
+current_season <- "25_26"
 
 ```
 

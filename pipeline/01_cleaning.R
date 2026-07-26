@@ -10,10 +10,10 @@ library(validate)
 
 ## Parameters ----------------------------------------------------------------------------------------------
 #| label: parameters
-read_path <- here("data", paste0("season_", season_id, ".xlsx"))
+read_path <- here("data", paste0("season_", current_season, ".xlsx"))
   
 
-## DB Connection ----------------------------------------------------------------------------------------------
+## DB Connection ------------------------------------------------------------------------------------------
 #| label: db_connection
 source(here("R/db_connection.R"))
 
@@ -30,12 +30,12 @@ gameweeks <- dbReadTable(con, "gameweeks")
 team_names <- dbReadTable(con, "team_names")
 
 
-## Import Season ----------------------------------------------------------------------------------------------
+## Import Season ------------------------------------------------------------------------------------------
 #| label: import_season
 raw_season <- read_excel(read_path, sheet = "season")
 
 
-## Import Teams ---------------------------------------------------------------------------------------------
+## Import Teams -------------------------------------------------------------------------------------------
 #| label: import_teams
 season_managers <- excel_sheets(read_path) |> 
   discard(~ .x %in% c("season", "transfers", "week_1_teams"))
@@ -50,12 +50,12 @@ raw_teams <- bind_rows(team_list)
 rm(team_list, season_managers)
 
 
-## Import Transfers ----------------------------------------------------------------------------------------------
+## Import Transfers ---------------------------------------------------------------------------------------
 #| label: import_transfers
 raw_transfers <- read_excel(read_path, sheet = "transfers")
 
 
-## Import GW1 Teams ----------------------------------------------------------------------------------------------
+## Import GW1 Teams ---------------------------------------------------------------------------------------
 #| label: import_gw1_teams
 raw_gw1_teams <- read_excel(read_path, sheet = "week_1_teams")
 
@@ -65,12 +65,12 @@ raw_gw1_teams <- read_excel(read_path, sheet = "week_1_teams")
 source(here("R/calc_ft.R"))
 
 
-## Clean Season ----------------------------------------------------------------------------------------------
+## Clean Season -------------------------------------------------------------------------------------------
 #| label: clean_season
 clean_season <- raw_season |> 
   mutate(
     full_name = str_extract(team, "(?<=\\()[^)]+(?=\\))"),
-    season_id = season_id
+    season_id = current_season
   ) |> 
   left_join(managers |> select(manager_id, manager_full_name), by = c("full_name" = "manager_full_name")) |> 
   select(-c(date, full_name, team)) |> 
@@ -104,7 +104,7 @@ clean_season <- clean_season |>
 #| label: clean_teams
 clean_teams <- raw_teams |> 
   mutate(
-    season_id = season_id,
+    season_id = current_season,
     minutes = case_when(
       str_detect(status, "Did not play") ~ 0,
       TRUE ~ as.numeric(str_extract(status, "\\d+"))
@@ -169,23 +169,23 @@ clean_teams <- clean_teams |>
 rm(bb_gameweeks)
 
 
-## Clean Transfers ----------------------------------------------------------------------------------------------
+## Clean Transfers ---------------------------------------------------------------------------------------------
 #| label: clean_transfers
 clean_transfers <- raw_transfers |>  
   mutate(
     points_diff = points_in - points_out,
-    season_id = season_id
+    season_id = current_season
   ) |> 
   left_join(managers |> select(manager_id, manager_name), by = c("manager" = "manager_name")) |> 
   select(season_id, gameweek_id, manager_id, everything(), -c(Column1, manager))
 
 
-## Import Rulesets ----------------------------------------------------------------------------------------------
+## Import Rulesets ---------------------------------------------------------------------------------------------
 #| label: import_rulesets
 source(here("R/validation_rulesets.R"))
 
 
-## Season Rules Check ----------------------------------------------------------------------------------------------
+## Season Rules Check ------------------------------------------------------------------------------------------
 #| label: season_rules_check
 # Applies ruleset
 season_rules_check <- confront(clean_season, season_rules)
@@ -235,7 +235,7 @@ if (all(total_check$match)) {
 }
 
 
-## Teams Rules Check ----------------------------------------------------------------------------------------------
+## Teams Rules Check -------------------------------------------------------------------------------------------
 #| label: teams_rules_check
 # Applies ruleset
 teams_rules_check <- confront(clean_teams, teams_rules)
@@ -290,7 +290,7 @@ if (all(captain_check$valid)) {
 }
 
 
-## Transfers Rules Check ----------------------------------------------------------------------------------------------
+## Transfers Rules Check -----------------------------------------------------------------------------------------
 #| label: transfers_rules_check
 # Applies ruleset
 transfers_rules_check <- confront(clean_transfers, transfers_rules)
@@ -317,7 +317,7 @@ if (nrow(transfers_failures) > 0) {
 }
 
 
-## Cross-Dataset Checks ----------------------------------------------------------------------------------------------
+## Cross-Dataset Checks -----------------------------------------------------------------------------------------
 #| label: checking_transfers_match
 # Checking gw points across teams and seasons
 player_points <- clean_teams |> 
@@ -382,6 +382,6 @@ if (nrow(ft_mismatches) == 0) {
 }
 
 
-## All Checks Passed ----------------------------------------------------------------------------------------------
+## All Checks Passed -------------------------------------------------------------------------------------------
 #| label: all_checks_passed
 cat("✓ All validation checks passed — safe to write tables to DB and proceed to aggregation.\n")
