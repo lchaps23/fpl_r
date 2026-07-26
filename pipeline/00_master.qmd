@@ -1,0 +1,123 @@
+---
+title: "master"
+format: html
+---
+
+# Packages
+
+```{r}
+#| label: packages
+
+library(here)
+
+```
+
+# Parameters
+
+```{r}
+#| label: parameters
+
+season_id <- "25_26"
+
+```
+
+# 1. Cleaning & Validation
+
+```{r}
+#| label: 01_cleaning.qmd
+
+source(here("pipeline/01_cleaning.R"))
+
+rm(captain_check, ft_mismatches, player_points, player_transfers, points_mismatches, season_failures, teams_failures, total_check, transfers_failures)
+
+```
+
+# 2. Writing to DB
+## db_write()
+
+```{r}
+#| label: db_write
+
+source(here("R/db_write.R"))
+
+```
+
+## Writing Season
+
+```{r}
+#| label: writing_season
+
+season_result <- tryCatch(
+  db_write(
+    con = con, 
+    table_name = "season_standings", 
+    data = clean_season, 
+    key_cols = c("season_id", "manager_id", "gameweek_id")
+  ),
+  error = function(e) list(error = paste("FAILED:", e$message))
+)
+
+```
+
+## Writing Teams
+
+```{r}
+#| label: writing_teams
+
+teams_result <- tryCatch(
+  db_write(
+    con = con, 
+    table_name = "squads", 
+    data = clean_teams, 
+    key_cols = c("season_id", "manager_id", "gameweek_id", "player_slot")
+  ),
+  error = function(e) list(error = paste("FAILED:", e$message))
+)
+
+```
+
+## Writing Transfers
+
+```{r}
+#| label: writing_transfers
+
+transfers_result <- tryCatch(
+  db_write(
+    con = con, 
+    table_name = "transfers", 
+    data = clean_transfers, 
+    key_cols = c("season_id", "manager_id", "gameweek_id", "player_out")
+  ),
+  error = function(e) list(error = paste("FAILED:", e$message))
+)
+
+```
+
+## Confirmation
+
+```{r}
+#| label: all_tbls_written
+
+write_results <- list(
+  season_standings  = season_result,
+  squads            = teams_result,
+  transfers         = transfers_result
+)
+
+failed <- keep(write_results, \(x) !is.null(x$error))
+
+if (length(failed) > 0) {
+  stop("Database write failed for: ", paste(names(failed), collapse = ", "))
+}
+
+for (name in names(write_results)) {
+  cat(glue("✓ {name}: {write_results[[name]]$inserted} rows added, {write_results[[name]]$updated} rows updated\n\n"))
+}
+
+```
+
+# 3. Aggregation
+
+
+
+# 4. Season Reports
