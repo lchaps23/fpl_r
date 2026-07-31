@@ -1,0 +1,686 @@
+---
+format:
+  html:
+    css: styles.css
+    theme: darkly
+    page-layout: full
+    embed-resources: true
+    toc: true
+    toc-location: left
+    toc-title: Contents
+    fig-dpi: 150
+    fig-width: 8
+    fig-height: 5
+    number-sections: true
+    include-in-header:
+      text: |
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  manager_id: 1
+  current_season: "25_26"
+---
+
+```{r}
+#| label: libraries
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(ggimage)
+library(gt)
+library(scales)
+library(flextable)
+library(officer)
+library(reactable)
+library(reactablefmtr)
+library(tippy)
+library(htmlwidgets)
+library(plotly)
+```
+
+```{r}
+#| label: load_tables
+
+path <- here("data", "report_data", "season", paste0(params$current_season, ".rds"))
+
+data <- readRDS(path)
+```
+
+```{r}
+#| label: adding_manager_info
+
+data <- imap(data, \(df, name) {
+  if ("manager_id" %in% names(df) && name != "managers") {
+    left_join(df, data$managers, by = "manager_id")
+  } else {
+    df
+  }
+})
+
+```
+
+```{r}
+#| label: parameters
+
+season <- data$season$season_label
+```
+
+```{r}
+#| label: aesthetics
+
+source(here::here("R/aesthetics/theme_fpl.R"))
+source(here::here("R/aesthetics/fpl_table_reactable.R"))
+source(here::here("R/aesthetics/tooltip.R"))
+source(here::here("R/report_functions.R"))
+```
+
+```{r}
+#| label: focal_manager_data
+
+mgr <- params$manager # Setting focal manager_id
+
+mgr_team <- data$squads |> # Their team performance each gameweek
+  filter(manager_id == mgr)
+
+mgr_summary <- data$manager_summary |> # Single row from manager_summary for this manager
+  filter(manager_id == mgr)
+
+mgr_gw <- mgr_summary$gw_history[[1]] # Their per-gameweek history (unnested from the list-column)
+
+mgr_players <- mgr_summary$manager_player_summary[[1]] # Their per-player breakdown (unnested from the list-column)
+
+mgr_season <- data$standings |> # Their season-level row from the flat season dataset (one row per GW)
+  filter(manager_id == mgr) |> 
+  arrange(gameweek_id)
+
+mgr_transfers <- data$transfers |> # Their season transfer log
+  filter(manager_id == mgr) |> 
+  arrange(gameweek_id)
+
+mgr_info <- data$managers |>
+  filter(manager_id == mgr)
+
+mgr_colour <- mgr_info$colour_hex
+
+# Final gameweek number (used to place headshot images at the end of lines)
+final_gw <- max(data$standings$gameweek_id)
+
+# Number of managers
+n_managers <- data$standings |> 
+  filter(gameweek_id == final_gw) |> 
+  distinct(manager_id) |> 
+  nrow()
+```
+
+```{r}
+#| label: season_overview
+
+# Final season standing
+mgr_final_position_char <- mgr_season |>
+  filter(gameweek_id == final_gw) |>
+  pull(season_standing) |> 
+  rank_suffix()
+
+# Final season standing - no suffix
+mgr_final_position_num <- mgr_season |>
+  filter(gameweek_id == final_gw) |>
+  pull(season_standing)
+
+# Final score
+mgr_final_score <- mgr_season |> 
+  filter(gameweek_id == final_gw) |> 
+  pull(total) |> 
+  comma()
+
+# Best and worst gameweek points
+mgr_bw_gw_pts <- mgr_season |> 
+  best_worst_metric(metric_col = gw_net, label_col = gameweek_id)
+
+# Average gameweek points
+mgr_avg_gw_pts <- round(mean(mgr_season$gw_net), 1)
+
+# Best and worst overall rank
+mgr_bw_ov_rank <- mgr_season |> 
+  best_worst_metric( metric_col = overall_rank, label_col = gameweek_id)
+
+# Final overall rank
+mgr_final_ov_rank <- mgr_season |> 
+  filter(gameweek_id == final_gw) |> 
+  pull(overall_rank) |> 
+  comma()
+
+# Total transfers
+mgr_n_transfers <- nrow(mgr_transfers)
+
+# Total hits
+mgr_n_hits <- paste0(sum(mgr_season$extra_trf), " (", sum(mgr_season$hit_points), " pts)")
+
+# Creating final dataset to pipe into flextable
+tbl_mgr_season_overview <- tribble(
+  ~Metric               , ~Value                               ,
+  "Final Position"      , as.character(mgr_final_position_char),
+  "Total Points"        , as.character(mgr_final_score)        ,
+  "Highest GW Score"    , mgr_bw_gw_pts$best_label             ,
+  "Lowest GW Score"     , mgr_bw_gw_pts$worst_label            ,
+  "Average GW Score"    , as.character(mgr_avg_gw_pts)         ,
+  "Highest Overall Rank", mgr_bw_ov_rank$worst_label           ,
+  "Lowest Overall Rank" , mgr_bw_ov_rank$best_label            ,
+  "Final Overall Rank"  , as.character(mgr_final_ov_rank)      ,
+  "Total Transfers"     , as.character(mgr_n_transfers)        ,
+  "Transfer Hits"       , as.character(mgr_n_hits)        
+)
+
+```
+
+# FPL Wrapped `r season` - `r mgr_info$manager_full_name` {.unnumbered .unlisted}
+
+---
+
+# Introduction {.unnumbered}
+
+::: {style = "float: right; margin-left: 20px; margin-bottom: 10px; width: 40%;"}
+```{r}
+#| label: tbl-season-overview
+#| tbl-cap: !expr paste0("Your season overview for ", season, ".")
+
+tbl_mgr_season_overview |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      Metric = colDef(
+        width = 200,
+        align = "left"
+      ),
+      Value = colDef(
+        width = 200
+      )
+    )
+  )
+
+```
+:::
+
+`r mgr_info$display_name`, congratulations on enduring yet another FPL season!
+
+This document aims to provide you with an overview of how you performed this year, as well as painting a general picture of how the mini-league season unfolded overall.
+
+In @tbl-season-overview you will find a snapshot of your final stats for the season. 
+
+@sec-season-performance looks specifically at how your fortunes ~~or misfortunes~~ changed on a gameweek by gameweek basis across a number of metrics. Each section presents your information against all of the managers in the league allowing you to easily compare. Within this section you can find information on league position, captaincy, chip usage and much more.
+
+@sec-gw assess our total performance across the gameweeks
+
+@sec-player-performance dives in to how the actual players performed for all of us
+
+@sec-league-history 
+
+# Season Performance {#sec-season-performance}
+
+---
+
+## League Position
+
+```{r}
+#| label: position_data
+
+# Most frequent position the mgr was in
+mgr_position_common <- mgr_season |> 
+  count(season_standing) |> 
+  slice_max(n, n = 1, with_ties = FALSE) |> 
+  pull(season_standing) |> 
+  rank_suffix()
+
+# The number of points behind/ahead of the league position above/below the mgr,
+# and the name of the other mgr in these positions
+mgr_position_pts_ahead_behind <- data$standings |> 
+  filter(gameweek_id == final_gw) |> 
+  arrange(season_standing) |> 
+  mutate(
+    pts_behind   = if_else(season_standing == 1, NA_real_, lag(total) - total),
+    rank_behind  = if_else(season_standing == 1, NA_character_, rank_suffix(season_standing - 1)),
+    mgr_behind   = if_else(season_standing == 1, NA_character_, lag(display_name)),
+    pts_ahead    = if_else(season_standing == n_managers, NA_real_, total - lead(total)),
+    rank_ahead   = if_else(season_standing == n_managers, NA_character_, rank_suffix(season_standing + 1)),
+    mgr_ahead    = if_else(season_standing == n_managers, NA_character_, lead(display_name))
+  ) |> 
+  filter(manager_id == mgr)
+
+# The mgr's best/worst league positions in the season
+mgr_bw_position <- mgr_season |> 
+  best_worst_metric(metric_col = season_standing, label_col = gameweek_id)
+
+# Gain/Lose position streaks
+mgr_position_streaks <- mgr_season |> 
+  arrange(gameweek_id) |> 
+  mutate(
+    standing_change = season_standing - lag(season_standing),
+    direction = case_when(
+      standing_change < 0 ~ "gain",
+      standing_change > 0 ~ "loss",
+      standing_change == 0 ~ "hold",
+      is.na(standing_change) ~ "hold"
+    )
+  )
+
+mgr_position_streaks_longest <- mgr_position_streaks |> 
+  summarise(
+    longest_gain = {
+      r <- rle(direction)
+      max(r$lengths[r$values == "gain"], default = 0)
+    },
+    longest_loss = {
+      r <- rle(direction)
+      max(r$lengths[r$values == "loss"], default = 0)
+    }
+  )
+
+# The standard deviation of all managers league positions
+all_position_sd <- data$standings |> 
+  group_by(manager_id) |> 
+  summarise(position_sd = round(sd(season_standing), 1)) |> 
+  rank_variable(var = position_sd, high_to_low = TRUE)
+
+mgr_position_sd <- all_position_sd |> 
+  filter(manager_id == mgr)
+  
+```
+
+```{r}
+#| label: position_sentences
+
+sentence_behind <- if (!is.na(mgr_position_pts_ahead_behind$pts_behind)) {
+  paste0("This was **", mgr_position_pts_ahead_behind$pts_behind, " ",
+         ifelse(mgr_position_pts_ahead_behind$pts_behind == 1, "point", "points"),
+         "** behind **", 
+         mgr_position_pts_ahead_behind$mgr_behind, " (", mgr_position_pts_ahead_behind$rank_behind, ")**.")
+} else {
+  ""
+}
+
+sentence_ahead <- if (!is.na(mgr_position_pts_ahead_behind$pts_ahead)) {
+  paste0("You were **", mgr_position_pts_ahead_behind$pts_ahead, " ",
+         ifelse(mgr_position_pts_ahead_behind$pts_ahead == 1, "point", "points"),
+         "** ahead of **", 
+         mgr_position_pts_ahead_behind$mgr_ahead, " (", mgr_position_pts_ahead_behind$rank_ahead, ")**.")
+} else {
+  ""
+}
+
+```
+
+::: {style = "float: right; margin-left: 20px; margin-bottom: 5px; width: 50%;"}
+```{r}
+#| label: tbl-league-position
+#| tbl-cap: "The cumulative number of gameweeks you spent in each league position."
+
+tbl_league_position <- mgr_season |> 
+  tabyl(season_standing) |> 
+  complete(season_standing = 1:n_managers, fill = list(n = 0, percent = 0)) |> 
+  mutate(
+    season_standing = rank_suffix(season_standing),
+    manager_colour = mgr_colour
+  )
+
+tbl_league_position |> 
+  fpl_table(
+    columns = list(
+      
+      season_standing = colDef(
+        name = "Position",
+        align = "center",
+        maxWidth = 100
+        ),
+      
+      n = colDef(
+        name = "Count",
+        align = "center",
+        maxWidth = 100
+        ),
+      
+      percent = colDef(
+        name = "Season %",
+        align = "center",
+        cell = data_bars(
+          data = tbl_league_position,
+          text_position = "above",
+          fill_color_ref = "manager_colour",
+          text_color = "#F2F2F2",
+          number_fmt = percent_format(accuracy = 1),
+          max_value = 1
+          ) 
+        ),
+      
+      manager_colour = colDef(show = FALSE)
+      )
+    )
+
+```
+:::
+
+Your gameweek by gameweek positioning in the league table is displayed below in @fig-league-position. 
+
+As mentioned in @tbl-season-overview, your final position was **`r mgr_final_position_char`** place with **`r mgr_final_score` points**. `r sentence_behind` `r sentence_ahead`
+
+Throughout the season, you were most frequently in **`r mgr_position_common`** place. The highest position you achieved was **`r mgr_bw_position$best_value`**, and the lowest position was **`r mgr_bw_position$worst_value`**. @tbl-league-position shows the amount of gameweeks you spent in each position in the league, as well as the proportion of the season as a whole.
+
+Putting together streaks can make or break a season. This year your longest streak of gaining position was **`r mgr_position_streaks_longest$longest_gain` `r if (mgr_position_streaks_longest$longest_gain == 1) "gameweek," else "gameweeks,"`** while your longest streak of losing position was **`r mgr_position_streaks_longest$longest_loss` `r if (mgr_position_streaks_longest$longest_loss == 1) "gameweek." else "gameweeks."`**
+
+Finally, with a positional standard deviation of **`r mgr_position_sd$position_sd`**, you were the **`r mgr_position_sd$position_sd_rank_char` `r if (mgr_position_sd$position_sd_tied) "(joint) " else ""`most** consistent manager in the league this season.
+
+<br>
+
+```{r}
+#| label: fig-league-position
+#| fig-cap: !expr paste("League positioning throughout the", season, "season on a gameweek by gameweek basis.")
+
+# Base plot
+p <- plot_ly()
+
+# Add bump lines + points for each manager
+for (m in unique(data$standings$manager_id)) {
+
+  manager_data <- data$standings |>
+    filter(manager_id == m)
+
+  p <- p |>
+    add_trace(
+      data = manager_data,
+      x = ~gameweek_id,
+      y = ~season_standing,
+      customdata = ~comma(total),
+      type = "scatter",
+      mode = "lines+markers",
+      text = ~display_name,
+      name = ~display_name,
+      line = list(
+        color = ~colour_hex,
+        width = 3,
+        smoothing = 1.3
+      ),
+      marker = list(
+        size = 9,
+        color = ~colour_hex
+      ),
+      hovertemplate = paste(
+        "<i><b>%{text}</b></i><br>",
+        "<b>GW: </b>%{x}<br>",
+        "<b>Position: </b>%{y}<br>",
+        "<b>Points: </b>%{customdata}<extra></extra>"
+      )
+    )
+}
+
+p <- p |>
+  layout(
+    font = list(
+      color = "#F2F2F2"
+    ),
+
+    xaxis = list(
+      title = "Gameweek",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      tickvals = c(1, seq(5, 38, by = 5), 38),
+      range = c(0, 39),
+      gridcolor = "#3A3A3A",
+      zerolinecolor = "#3A3A3A"
+    ),
+
+    yaxis = list(
+      title = "Position",
+      autorange = "reversed",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      tickvals = 1:n_managers,
+      ticktext = rank_suffix(1:n_managers),
+      gridcolor = "#3A3A3A",
+      zerolinecolor = "#3A3A3A"
+    ),
+
+    showlegend = TRUE,
+    plot_bgcolor = "#232323",
+    paper_bgcolor = "#232323"
+  )
+
+p
+```
+
+---
+
+## Relative Performance
+
+```{r}
+#| label: z_scores
+
+# Highest and lowest cumulative z-score
+mgr_bw_z_score_cumulative <- mgr_season |> 
+  best_worst_metric(metric_col = cumulative_z, label_col = gameweek_id, rounding = 0.01)
+
+# Best and worst single gameweek performance
+gw_averages <- data$standings |> 
+  group_by(gameweek_id) |> 
+  summarise(gw_pts_avg = round(mean(gw_net), 1))
+
+mgr_z_best_gw <- mgr_season |> 
+  slice_max(gw_z_score, n = 1) |> 
+  select(gameweek_id, gw_z_score, gw_net) |> 
+  left_join(gw_averages, by = "gameweek_id")
+
+mgr_z_worst_gw <- mgr_season |> 
+  slice_min(gw_z_score, n = 1) |> 
+  select(gameweek_id, gw_z_score, gw_net) |> 
+  left_join(gw_averages, by = "gameweek_id")
+
+# How many gameweeks beating or losing against the average
+mgr_z_direction <- mgr_season |> 
+  summarise(
+    gws_above = sum(gw_z_score > 0),
+    gws_below = sum(gw_z_score < 0)
+  )
+
+# Final rank and cumulative z-score
+all_z_final_rank <- data$standings |> 
+  filter(gameweek_id == final_gw) |> 
+  rank_variable(var = cumulative_z, high_to_low = TRUE)
+
+# Capturing the final rank as a standalone value
+mgr_final_z_rank_char <- all_z_final_rank |> filter(manager_id == mgr) |> pull(cumulative_z_rank_char)
+mgr_final_z_rank_num <- all_z_final_rank |> filter(manager_id == mgr) |> pull(cumulative_z_rank_num)
+
+```
+
+When comparing performance across gameweeks, raw points can be misleading. A score of 80 points might sound impressive, but if everyone else in the league averaged 85 that week, it was actually a below-par performance. Equally, a score of 45 points might feel disappointing, but if the league average was 35 it was actually a strong relative performance.
+
+This is where z-scores come in. Rather than looking at your raw points each gameweek, a z-score measures how far above or below the league average you were relative to the spread of scores that week. In simple terms:
+
+- A positive z-score means you outperformed the league average that gameweek
+- A negative z-score means you fell below the league average
+- A z-score of +1 means you scored one standard deviation above the average, which can be considered a strong week
+- A z-score of -1 means you scored one standard deviation below the average, and therefore should be interpreted as a tough week
+
+The cumulative z-score is simply the running total of these weekly z-scores added together over the season. It allows us to see surges of momentum against the league average, as well as dips in performance. The running total for the `r season` season can be seen below in @fig-relative-performance.
+
+Over the course of the season you beat the league average in **`r mgr_z_direction$gws_above` gameweeks** and fell below it in **`r mgr_z_direction$gws_below` gameweeks**.
+
+Your best relative gameweek was **GW`r mgr_z_best_gw$gameweek_id`**, where you scored **`r scales::comma(mgr_z_best_gw$gw_net)` points** against a league average of **`r mgr_z_best_gw$gw_pts_avg`**, giving a z-score of **`r round(mgr_z_best_gw$gw_z_score, 2)`**. Your worst was **GW`r mgr_z_worst_gw$gameweek_id`**, where you scored **`r scales::comma(mgr_z_worst_gw$gw_net)` points** against a league average of **`r mgr_z_worst_gw$gw_pts_avg`**, resulting in a z-score of **`r round(mgr_z_worst_gw$gw_z_score, 2)`**.
+
+Your cumulative z-score peaked at **`r mgr_bw_z_score_cumulative$best_label`**, and your lowest point was **`r mgr_bw_z_score_cumulative$worst_label`**. By the end of the season your cumulative z-score of **`r round(tail(mgr_season$cumulative_z, 1), 2)`** ranked **`r mgr_final_z_rank_char`** in the league, `r if (tail(mgr_season$cumulative_z, 1) > 0) "meaning you outperformed the league average across the season as a whole." else "meaning you fell below the league average across the season as a whole."`
+
+```{r}
+#| results: asis
+#| eval: false
+
+if (mgr_final_position_num != mgr_final_z_rank_num) {
+  cat(glue::glue("
+::: {{.callout-note}}
+## Total Points vs Z-Score
+Despite finishing **{mgr_final_position_char}** in total points, your cumulative z-score ranked you **{mgr_final_z_rank_char}** in the league. This suggests your points {if (mgr_final_z_rank_num > mgr_final_position_num) 'tended to come in high-scoring weeks where the league also performed well, making them less impactful in relative terms.' else 'were accumulated in weeks where the rest of the league struggled, meaning your relative performance was stronger than your raw points suggest.'}
+:::
+"))
+}
+```
+
+```{r}
+#| label: fig-relative-performance
+#| fig-cap: !expr paste("How the cumulative z-scores progressed for all managers across the", season, "season.")
+
+# Initialise plot
+p <- plot_ly()
+
+# Add horizontal reference line
+p <- p |>
+  add_segments(
+    x = min(data$standings$gameweek_id),
+    xend = max(data$standings$gameweek_id),
+    y = 0,
+    yend = 0,
+    line = list(
+      dash = "dash",
+      color = "#F2F2F2"
+    ),
+    inherit = FALSE,
+    showlegend = FALSE,
+    hoverinfo = "none"
+  )
+
+# Add manager traces
+for (m in unique(data$standings$manager_id)) {
+
+  manager_data <- data$standings |>
+    filter(manager_id == m)
+
+  p <- p |>
+    add_trace(
+      data = manager_data,
+      x = ~gameweek_id,
+      y = ~cumulative_z,
+      customdata = ~gw_z_score,
+      type = "scatter",
+      mode = "lines+markers",
+      text = ~display_name,
+      name = ~display_name,
+      line = list(
+        color = ~colour_hex,
+        width = 2
+      ),
+      marker = list(
+        size = 7,
+        color = ~colour_hex
+      ),
+      hovertemplate =
+        paste(
+          "<i><b>%{text}</b></i><br>",
+          "GW: %{x}<br>",
+          "Z-Score: %{customdata}</br>",
+          "Total Z-Score: %{y:.2f}<extra></extra>"
+        )
+     
+   )
+}
+
+# Layout
+p <- p |>
+  layout(
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+
+    xaxis = list(
+      title = "Gameweek",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A",
+      zerolinecolor = "#3A3A3A"
+    ),
+
+    yaxis = list(
+      title = "Cumulative Z-Score",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A",
+      zerolinecolor = "#3A3A3A"
+    ),
+
+    paper_bgcolor = "#232323",
+    plot_bgcolor = "#232323"
+  )
+
+p
+```
+
+---
+
+## Score Distribution
+
+```{r}
+#| label: score_distribution
+
+# How often top/bottom scorer
+mgr_gw_top_scorer <- data$gameweek_summary |> filter(top_scorer == mgr) |> nrow()
+mgr_gw_low_scorer <- data$gameweek_summary |> filter(low_scorer == mgr) |> nrow()
+
+# Score distribution summary stats
+mgr_gw_boxplot_stats <- mgr_gw |> 
+  pull(gw_net) |> 
+  quantile(c(0.25, 0.5, 0.75)) |> 
+  unname() |> 
+  round(1)
+
+# Median score rank
+all_gw_median_ranks <- data$standings |> 
+  group_by(manager_id) |> 
+  summarise(median = median(gw_net)) |> 
+  rank_variable(var = median, high_to_low = TRUE)
+
+mgr_gw_median_rank_num <- all_gw_median_ranks |> filter(manager_id == mgr) |> pull(median_rank_num)
+mgr_gw_median_rank_char <- all_gw_median_ranks |> filter(manager_id == mgr) |> pull(median_rank_char)
+
+```
+---
+
+```{r}
+#| label: html_plotly_click
+
+p <- onRender(p, "
+function(el, x) {
+
+  el.on('plotly_click', function(data) {
+
+    const clicked = data.points[0].curveNumber;
+
+    const update = {
+      opacity: []
+    };
+
+    for (let i = 0; i < x.data.length; i++) {
+      if (i === clicked) {
+        update.opacity.push(1);
+      } else {
+        update.opacity.push(0.1);
+      }
+    }
+
+    Plotly.restyle(el, update);
+  });
+
+  el.on('plotly_doubleclick', function() {
+    const reset = {
+      opacity: Array(x.data.length).fill(1)
+    };
+
+    Plotly.restyle(el, reset);
+  });
+
+}
+")
+```

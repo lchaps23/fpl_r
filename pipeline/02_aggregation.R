@@ -22,19 +22,26 @@ if (!exists("con", where = globalenv(), inherits = FALSE)) {
 #| label: db_tables
 
 # Manager ID and names
-managers <- dbReadTable(con, "managers")
+managers <- dbReadTable(con, "managers") |> 
+  arrange(manager_id)
 # Season ID and label
-seasons <- dbReadTable(con, "seasons")
+seasons <- dbReadTable(con, "seasons") |> 
+  arrange(season_id)
 # Gameweek ID and date
-gameweeks <- dbReadTable(con, "gameweeks")
+gameweeks <- dbReadTable(con, "gameweeks") |> 
+  arrange(season_id, gameweek_id)
 # Team names
-team_names <- dbReadTable(con, "team_names")
+team_names <- dbReadTable(con, "team_names") |> 
+  arrange(season_id, manager_id)
 # Season standings, and gameweek snapshot for each manager
-standings <- dbReadTable(con, "season_standings")
+standings <- dbReadTable(con, "season_standings") |> 
+  arrange(gameweek_id, season_standing)
 # Squads - all players for each manager, each gameweek
-squads <- dbReadTable(con, "squads")
+squads <- dbReadTable(con, "squads") |> 
+  arrange(season_id, manager_id, gameweek_id, player_slot)
 # Transfers - all transfers for each manager, each gameweek
-transfers <- dbReadTable(con, "transfers")
+transfers <- dbReadTable(con, "transfers") |> 
+  arrange(season_id, gameweek_id, manager_id)
 
 # Creating a vector of all tables loaded from DB that can be filtered by season_id
 db_tables <- setdiff(ls(), c("con", "current_season", "managers"))

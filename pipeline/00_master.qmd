@@ -9,6 +9,7 @@ format: html
 #| label: packages
 
 library(here)
+library(glue)
 
 ```
 
@@ -118,11 +119,79 @@ for (name in names(write_results)) {
 
 # 3. Aggregation
 
+## 3.1 Deriving Tables
+
 ```{r}
 #| label: 02_aggregation.R
+#| message: false
 
 source(here("pipeline/02_aggregation.R"))
 
 ```
 
+## 3.2 Saving to .rds
+
+```{r}
+#| label: season_data
+
+season_data <- list(
+  gameweek_summary = gameweek_summary,
+  gameweeks = gameweeks,
+  manager_of_the_month = manager_of_the_month,
+  manager_summary = manager_summary,
+  managers = managers,
+  player_captaincy = player_captaincy,
+  player_summary = player_summary,
+  seasons = seasons,
+  squads = squads,
+  standings = standings,
+  team_names = team_names,
+  transfers = transfers
+)
+
+dir <- here("data/report_data/season/")
+
+if (!dir.exists(dir)) {
+  
+  dir.create(dir, recursive = TRUE)
+}
+
+saveRDS(season_data, file.path(dir, paste0(current_season, ".rds")))
+
+```
+
 # 4. Season Reports
+
+```{r}
+#| label: 03_report
+
+current_season_managers <- standings |> 
+  distinct(manager_id) |> 
+  pull(manager_id)
+
+for (mgr in current_season_managers) {
+  
+  output_file <- glue("report_{current_season}_{mgr}")
+  output_dir <- here("outputs", current_season)
+  
+  if(!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  
+  quarto::quarto_render(
+    input       = here("pipeline", "03_report.qmd"),
+    output_file = output_file,
+    execute_params = list(
+      manager_id = mgr,
+      season_id  = current_season
+    )
+  )
+  
+  file.rename(
+    from = here("Pipeline", output_file),
+    to   = here(output_dir, output_file)
+  )
+  
+}
+```
+
