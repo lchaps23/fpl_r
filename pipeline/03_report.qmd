@@ -31,7 +31,6 @@ params:
 library(tidyverse)
 library(here)
 library(janitor)
-library(ggimage)
 library(gt)
 library(scales)
 library(flextable)
@@ -313,55 +312,6 @@ sentence_ahead <- if (!is.na(mgr_position_pts_ahead_behind$pts_ahead)) {
 
 ```
 
-::: {style = "float: right; margin-left: 20px; margin-bottom: 5px; width: 50%;"}
-```{r}
-#| label: tbl-league-position
-#| tbl-cap: "The cumulative number of gameweeks you spent in each league position."
-
-tbl_league_position <- mgr_season |> 
-  tabyl(season_standing) |> 
-  complete(season_standing = 1:n_managers, fill = list(n = 0, percent = 0)) |> 
-  mutate(
-    season_standing = rank_suffix(season_standing),
-    manager_colour = mgr_colour
-  )
-
-tbl_league_position |> 
-  fpl_table(
-    columns = list(
-      
-      season_standing = colDef(
-        name = "Position",
-        align = "center",
-        maxWidth = 100
-        ),
-      
-      n = colDef(
-        name = "Count",
-        align = "center",
-        maxWidth = 100
-        ),
-      
-      percent = colDef(
-        name = "Season %",
-        align = "center",
-        cell = data_bars(
-          data = tbl_league_position,
-          text_position = "above",
-          fill_color_ref = "manager_colour",
-          text_color = "#F2F2F2",
-          number_fmt = percent_format(accuracy = 1),
-          max_value = 1
-          ) 
-        ),
-      
-      manager_colour = colDef(show = FALSE)
-      )
-    )
-
-```
-:::
-
 Your gameweek by gameweek positioning in the league table is displayed below in @fig-league-position. 
 
 As mentioned in @tbl-season-overview, your final position was **`r mgr_final_position_char`** place with **`r mgr_final_score` points**. `r sentence_behind` `r sentence_ahead`
@@ -371,8 +321,6 @@ Throughout the season, you were most frequently in **`r mgr_position_common`** p
 Putting together streaks can make or break a season. This year your longest streak of gaining position was **`r mgr_position_streaks_longest$longest_gain` `r if (mgr_position_streaks_longest$longest_gain == 1) "gameweek," else "gameweeks,"`** while your longest streak of losing position was **`r mgr_position_streaks_longest$longest_loss` `r if (mgr_position_streaks_longest$longest_loss == 1) "gameweek." else "gameweeks."`**
 
 Finally, with a positional standard deviation of **`r mgr_position_sd$position_sd`**, you were the **`r mgr_position_sd$position_sd_rank_char` `r if (mgr_position_sd$position_sd_tied) "(joint) " else ""`most** consistent manager in the league this season.
-
-<br>
 
 ```{r}
 #| label: fig-league-position
@@ -418,7 +366,8 @@ for (m in unique(data$standings$manager_id)) {
 p <- p |>
   layout(
     font = list(
-      color = "#F2F2F2"
+      color = "#F2F2F2",
+      family = "Montserrat"
     ),
 
     xaxis = list(
@@ -450,6 +399,55 @@ p <- p |>
   )
 
 p
+```
+
+<br>
+
+```{r}
+#| label: tbl-league-position
+#| tbl-cap: "The cumulative number of gameweeks you spent in each league position."
+
+tbl_league_position <- mgr_season |> 
+  tabyl(season_standing) |> 
+  complete(season_standing = 1:n_managers, fill = list(n = 0, percent = 0)) |> 
+  mutate(
+    season_standing = rank_suffix(season_standing),
+    manager_colour = mgr_colour
+  )
+
+tbl_league_position |> 
+  fpl_table(
+    columns = list(
+      
+      season_standing = colDef(
+        name = "Position",
+        align = "center",
+        maxWidth = 100
+        ),
+      
+      n = colDef(
+        name = "Count",
+        align = "center",
+        maxWidth = 100
+        ),
+      
+      percent = colDef(
+        name = "Season %",
+        align = "center",
+        cell = data_bars(
+          data = tbl_league_position,
+          text_position = "above",
+          fill_color_ref = "manager_colour",
+          text_color = "#F2F2F2",
+          number_fmt = percent_format(accuracy = 1),
+          max_value = 1
+          ) 
+        ),
+      
+      manager_colour = colDef(show = FALSE)
+      )
+    )
+
 ```
 
 ---
@@ -577,9 +575,9 @@ for (m in unique(data$standings$manager_id)) {
       hovertemplate =
         paste(
           "<i><b>%{text}</b></i><br>",
-          "GW: %{x}<br>",
-          "Z-Score: %{customdata}</br>",
-          "Total Z-Score: %{y:.2f}<extra></extra>"
+          "<b>GW:</b> %{x}<br>",
+          "<b>Z-Score:</b> %{customdata}</br>",
+          "<b>Total Z-Score:</b> %{y:.2f}<extra></extra>"
         )
      
    )
@@ -646,6 +644,1617 @@ mgr_gw_median_rank_num <- all_gw_median_ranks |> filter(manager_id == mgr) |> pu
 mgr_gw_median_rank_char <- all_gw_median_ranks |> filter(manager_id == mgr) |> pull(median_rank_char)
 
 ```
+
+@fig-score-distribution below displays the distribution of your gameweek scores across the season. 
+
+Each box represents the middle 50% of your scores; in other words, in half of the gameweeks this season you scored between **`r mgr_gw_boxplot_stats[1]`** and **`r mgr_gw_boxplot_stats[3]` points** (your interquartile range). The line through the middle of the box is your median score of **`r mgr_gw_boxplot_stats[2]` points**, which ranked **`r mgr_gw_median_rank_char`** in the league. 
+
+Your highest raw score was **`r mgr_bw_gw_pts$best_value` points** in GW`r mgr_bw_gw_pts$best_gw` and your lowest score was **`r mgr_bw_gw_pts$worst_value` points** in GW`r mgr_bw_gw_pts$worst_gw`.
+
+The individual points on the graph represent every gameweek score you achieved.
+
+```{r}
+#| results: asis
+if (mgr_gw_median_rank_num != mgr_final_position_num) {
+  cat(glue::glue("
+::: {{.callout-note}}
+## Consistency vs Total Points
+Despite ranking **{mgr_gw_median_rank_char}** for median gameweek score, you finished **{mgr_final_position_char}** in the league. {if (mgr_gw_median_rank_num < mgr_final_position_num) 'This suggests you were a consistently high scorer week to week, but may have missed out on the explosive chip weeks or standout gameweeks that pushed other managers ahead in total points. In many ways, your median rank is a strong indicator of reliable weekly decision making.' else 'This suggests that while your total points were boosted by some standout gameweeks, your typical weekly score was more modest, meaning a few big weeks did a lot of the heavy lifting in your final points tally.'}
+:::
+  "))
+}
+```
+
+```{r}
+#| label: fig-score-distribution
+#| fig-cap: !expr paste("Distribution of all managers' weekly scores across the", season, "season. Ordered by highest to lowest median score.")
+
+rgba_col <- function(colour, alpha) {
+  rgb_vals <- col2rgb(colour)
+  sprintf(
+    "rgba(%d,%d,%d,%s)",
+    rgb_vals["red", 1], rgb_vals["green", 1], rgb_vals["blue", 1], alpha
+  )
+}
+
+dist_data <- data$standings |>
+  group_by(display_name) |>
+  mutate(median_score = median(gw_net)) |>
+  ungroup()
+
+mgr_order <- dist_data |>
+  distinct(display_name, median_score) |>
+  arrange(desc(median_score)) |>
+  pull(display_name)
+
+p <- plot_ly()
+ 
+for (m in mgr_order) {
+ 
+  d   <- filter(dist_data, display_name == m)
+  col <- d$colour_hex[1]
+ 
+  p <- add_trace(p,
+    data      = d,
+    y         = ~gw_net,
+    x         = ~display_name,
+    type      = "violin",
+    side      = "positive",
+    name      = m,
+    box       = list(visible = TRUE),
+    meanline  = list(visible = FALSE),
+    points    = "all",
+    jitter    = 0.4,
+    pointpos  = -0.6,
+    marker    = list(color = rgba_col(col, 0.80), size = 5),
+    line      = list(color = rgba_col(col, 1.00), width = 1),
+    fillcolor = rgba_col(col, 0.30),
+    text      = ~paste0(
+      "<i><b>", display_name, "</b></i><br>",
+      "<b>GW: </b>", gameweek_id, "<br>",
+      "<b>Pts: </b>", gw_net),
+    hoverinfo  = "text",
+    showlegend = TRUE
+  )
+}
+
+p <-  p |> 
+  layout(
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    yaxis = list(
+      title     = "Net GW Score",
+      tickvals  = seq(0, 140, by = 10),
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    xaxis = list(
+      title         = "",
+      categoryorder = "array",
+      categoryarray = mgr_order,
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2")
+    ),
+    legend = list(
+      font = list(color = "#F2F2F2"),
+      bgcolor = "#2E2E2E",
+      bordercolor = "#3A3A3A",
+      borderwidth = 1
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  config(displayModeBar = FALSE)
+
+p
+```
+
+---
+
+## Captaincy
+
+### Accuracy
+
+```{r}
+#| label: captain_accuracy
+
+# Calculating captain pick accuracy for all managers
+all_captain_pick_accuracy <- data$squads |> 
+  filter(actual_start == "Played") |> 
+  left_join(
+    data$standings |> select(manager_id, gameweek_id, chip),
+    by = c("manager_id", "gameweek_id")
+  ) |> 
+  mutate(
+    multiplier  = if_else(chip %in% c("TC1", "TC2"), 3, 2),
+    base_points = if_else(earned_captain == 1, points / multiplier, points)
+  ) |> 
+  group_by(manager_id, gameweek_id) |> 
+  slice_max(base_points, n = 1, with_ties = FALSE) |> 
+  ungroup() |> 
+  group_by(manager_id) |> 
+  summarise(
+    correct_cpt_pick = sum(earned_captain),
+    gameweeks        = n(),
+    prop             = round(correct_cpt_pick / gameweeks, 2)
+  ) |> 
+  rank_variable(var = correct_cpt_pick, high_to_low = TRUE) |> 
+  arrange(desc(prop)) |> 
+  left_join(data$managers, by = "manager_id")
+
+# Filtering for just the focal manager
+mgr_cpt_accuracy <- all_captain_pick_accuracy |> filter(manager_id == mgr)
+
+# Best/Worse captain pick, with optimal picks for all managers
+all_cpt_optimal_actual <- data$squads |> 
+  filter(actual_start == "Played") |> 
+  left_join(
+    data$standings |> select(manager_id, gameweek_id, chip),
+    by = c("manager_id", "gameweek_id")
+  ) |> 
+  mutate(
+    multiplier  = if_else(chip %in% c("TC1", "TC2"), 3, 2),
+    base_points = if_else(earned_captain == 1, points / multiplier, points)
+  ) |> 
+  group_by(manager_id, gameweek_id) |> 
+  mutate(
+    optimal_captain_pts = max(base_points) * multiplier,
+    actual_captain_pts  = sum(points[earned_captain == 1]),
+    optimal_player      = player[which.max(base_points)],
+    actual_player       = player[earned_captain == 1],
+    pts_left_on_table   = optimal_captain_pts - actual_captain_pts
+  ) |> 
+  filter(earned_captain == 1) |> 
+  ungroup()
+
+# Filtering for just the focal manager
+mgr_cpt_optimal_actual <- all_cpt_optimal_actual |>  
+  filter(manager_id == mgr)
+
+# Worst captain pick for focal manager
+mgr_worst_cpt_gw <- mgr_cpt_optimal_actual |> 
+  slice_max(pts_left_on_table, n = 1, with_ties = FALSE)
+
+# Best captain pick for focal manager
+mgr_best_cpt_gw <- mgr_cpt_optimal_actual |> 
+  filter(pts_left_on_table == 0) |> 
+  slice_max(actual_captain_pts, n = 1, with_ties = FALSE)
+
+```
+
+Picking the correct captain is one of the most impactful decisions an FPL manager makes each gameweek. A correct captain pick can really supercharge your gameweek, while a wrong pick leaves potentially important points on the table.
+
+This season you picked the optimal captain from your squad in **`r mgr_cpt_accuracy$correct_cpt_pick` out of `r mgr_cpt_accuracy$gameweeks` gameweeks**, which calculates to a success rate of **`r scales::label_percent()(mgr_cpt_accuracy$prop)`**. This ranked you `r if (mgr_cpt_accuracy$correct_cpt_pick_tied == TRUE) "joint"` **`r mgr_cpt_accuracy$correct_cpt_pick_rank_char`** in the league for captain accuracy. The rankings can be seen below in @fig-captain-accuracy.
+
+```{r}
+#| label: fig-captain-accuracy
+#| fig-cap: "The number of gameweeks each manager picked the optimal captain for their team."
+
+df <- all_captain_pick_accuracy |>
+  arrange(correct_cpt_pick)
+
+p <- plot_ly()
+
+p <- p |>
+  add_trace(
+    data = df,
+    x = ~correct_cpt_pick,
+    y = ~display_name,
+    type = "bar",
+    orientation = "h",
+    marker = list(color = ~colour_hex),
+    text = ~paste0(correct_cpt_pick, ", (", percent(prop), ")"),
+    textposition = "outside",
+    textfont = list(color = "#F2F2F2", size = 10),
+    hovertemplate = paste(
+      "<i><b>%{y}</b></i><br>",
+      "<b>Optimal Picks:</b> %{x}<br>", "<extra></extra>"
+    ),
+    showlegend = FALSE
+  )
+
+p <- p |>
+  layout(
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title = "Weeks with optimal captain picks",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A",
+      rangemode = "tozero",
+      range = c(0, max(df$correct_cpt_pick) * 1.15)
+    ),
+    yaxis = list(
+      title = "",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      categoryorder = "array",
+      categoryarray = df$display_name
+    ),
+    plot_bgcolor = "#232323",
+    paper_bgcolor = "#232323"
+  )
+
+p
+```
+
+Your best captaincy decision came in **GW`r mgr_best_cpt_gw$gameweek_id`**, where **`r mgr_best_cpt_gw$player`** returned **`r mgr_best_cpt_gw$actual_captain_pts` points** with the armband. Crucially, he was the most optimal pick for your team that gameweek.
+
+Your most costly captaincy decision came in **GW`r mgr_worst_cpt_gw$gameweek_id`**, where **`r mgr_worst_cpt_gw$player`** returned just **`r mgr_worst_cpt_gw$actual_captain_pts` points**. The optimal captain that week would have been **`r mgr_worst_cpt_gw$optimal_player`**, who would have scored **`r mgr_worst_cpt_gw$optimal_captain_pts` points** if you gave the armband to him. This ultimately means you left **`r mgr_worst_cpt_gw$pts_left_on_table` points** on the table. The worst picks for each manager across the season can be found below in @tbl-worst-captains.
+
+```{r}
+#| label: tbl-worst-captains
+#| tbl-cap: "A list of each managers worst captain pick, ranked and ordered by the worst overall."
+
+all_mgr_worst_cpt <- all_cpt_optimal_actual |> 
+  group_by(display_name) |> 
+  slice_max(pts_left_on_table, n = 1, with_ties = FALSE) |> 
+  arrange(desc(pts_left_on_table)) |> 
+  ungroup() |> 
+  rank_variable(var = pts_left_on_table, high_to_low = TRUE) |> 
+  select(pts_left_on_table_rank_char, display_name, gameweek_id, actual_player, actual_captain_pts, optimal_player, optimal_captain_pts, pts_left_on_table)
+
+all_mgr_worst_cpt |> 
+  fpl_table(
+    columns = list(
+      pts_left_on_table_rank_char = colDef(
+        name = "Rank",
+        maxWidth = 100
+      ),
+      
+      display_name = colDef(
+        name = "Manager",
+        maxWidth = 100
+      ),
+      
+      gameweek_id = colDef(
+        name = "GW",
+        maxWidth = 70
+      ),
+      
+      actual_player = colDef(
+        name = "Player",
+        maxWidth = 150
+      ),
+      
+      actual_captain_pts = colDef(
+        name = "Points",
+        maxWidth = 150
+      ),
+      
+      optimal_player = colDef(
+        name = "Player",
+        maxWidth = 150
+      ),
+      
+      optimal_captain_pts = colDef(
+        name = "Points",
+        maxWidth = 200
+      ),
+      
+      pts_left_on_table = colDef(
+        name = "Difference",
+        maxWidth = 150
+      )
+    ),
+    
+    columnGroups = list(
+      colGroup(name = "Actual Captain", columns = c("actual_player", "actual_captain_pts")),
+      colGroup(name = "Optimal Captain", columns = c("optimal_player", "optimal_captain_pts"))
+    )
+  )
+
+```
+
+### Impact
+
+```{r}
+#| label: captaincy_impact
+
+mgr_captaincy <- data$player_captaincy |>
+  unnest(captain_instances) |>
+  filter(manager_id == mgr) |>
+  arrange(gameweek_id) |> 
+  ungroup()
+
+mgr_cpt_impact_best  <- mgr_captaincy |> filter(manager_id == mgr) |> slice_max(vs_league_avg, n = 1, with_ties = FALSE)
+mgr_cpt_impact_worst <- mgr_captaincy |> filter(manager_id == mgr) |> slice_min(vs_league_avg, n = 1, with_ties = FALSE)
+mgr_cpt_total_vs_avg <- mgr_captaincy |> filter(manager_id == mgr) |> summarise(total = round(sum(vs_league_avg), 1)) |> pull(total)
+mgr_cpt_avg_vs_avg   <- mgr_captaincy |> filter(manager_id == mgr) |> summarise(avg = round(mean(vs_league_avg), 1)) |> pull(avg)
+mgr_gws_above_avg    <- mgr_captaincy |> filter(manager_id == mgr) |> filter(vs_league_avg > 0) |> nrow()
+mgr_gws_below_avg    <- mgr_captaincy |> filter(manager_id == mgr) |> filter(vs_league_avg < 0) |> nrow()
+cpt_total_label <- if (mgr_cpt_total_vs_avg >= 0) paste0("+", mgr_cpt_total_vs_avg) else as.character(mgr_cpt_total_vs_avg)
+cpt_avg_label   <- if (mgr_cpt_avg_vs_avg >= 0) paste0("+", mgr_cpt_avg_vs_avg) else as.character(mgr_cpt_avg_vs_avg)
+
+```
+
+The chart below shows how your captain's points compared to the league average captain score each gameweek. Bars above zero mean your captain outscored the typical captain across the league that week, while bars below zero mean the league's captains collectively outperformed yours. Bars that hover at zero or close to it, usually indicate a gameweek where the captain choice was pretty much unanimous and so every manager scored similarly.
+
+Over the season your captain beat the league average in **`r mgr_gws_above_avg` gameweeks** and fell below it in **`r mgr_gws_below_avg` gameweeks**. Your cumulative captain impact across the season was **`r cpt_total_label` points** versus the league average, with a typical weekly impact of **`r cpt_avg_label` points**.
+
+Your best captaincy week relative to the league was **GW`r mgr_cpt_impact_best$gameweek_id`**, where **`r mgr_cpt_impact_best$player`** returned **`r mgr_cpt_impact_best$points` points**, putting you **`r mgr_cpt_impact_best$vs_league_avg` points** above the league average that week. Your most difficult week was **GW`r mgr_cpt_impact_worst$gameweek_id`**, where **`r mgr_cpt_impact_worst$player`** returned **`r mgr_cpt_impact_worst$points` points**, falling **`r abs(mgr_cpt_impact_worst$vs_league_avg)` points** below the league average.
+
+```{r}
+#| label: fig-captaincy-impact
+#| fig-cap: "Your points returned per captain pick vs the league average captain score that gameweek. Bars above zero beat the average."
+
+mgr_captaincy <- mgr_captaincy |>
+  left_join(data$managers, by = "manager_id") |> 
+  mutate(
+    bar_colour = ifelse(
+      vs_league_avg >= 0,
+      colour_hex,
+      "#707070"
+    ),
+    label_pos = ifelse(vs_league_avg >= 0, "top", "bottom")
+  )
+
+p <- plot_ly()
+
+p <- p |>
+  add_trace(
+    data = mgr_captaincy,
+    x = ~gameweek_id,
+    y = ~vs_league_avg,
+    type = "bar",
+    marker = list(
+      color = mgr_captaincy$bar_colour
+    ),
+    hovertext = ~paste0(
+      "<i><b>", player, "</b></i><br>",
+      "<b>GW: </b>", gameweek_id, "<br>",
+      "<b>Points: </b>", points, "<br>",
+      "<b>vs League Avg: </b>", round(vs_league_avg, 1)
+    ),
+    hoverinfo = "text",
+    showlegend = FALSE
+  )
+
+p <- p |>
+  add_segments(
+    x = min(df$gameweek_id),
+    xend = max(df$gameweek_id),
+    y = 0,
+    yend = 0,
+    line = list(color = "#505050", width = 1),
+    inherit = FALSE,
+    showlegend = FALSE,
+    hoverinfo = "none"
+  )
+
+p <- p |>
+  layout(
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+
+    xaxis = list(
+      title = "Gameweek",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      tickvals = c(1, seq(5, 38, by = 5), 38),
+      range = c(0, 39),
+      gridcolor = "#3A3A3A"
+    ),
+
+    yaxis = list(
+      title = "Captain Points vs League Average",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+
+    plot_bgcolor = "#232323",
+    paper_bgcolor = "#232323"
+  )
+
+p
+```
+
+### Captain-less FPL
+
+```{r}
+#| label: captainless_fpl
+
+# Removing the extra points from captaincy and reranking managers
+# based on points
+captainless_fpl <- data$manager_summary |> 
+  ungroup() |> 
+  mutate(
+    total_captain_xtra = map_dbl(manager_player_summary, 
+                                 ~ sum(.x$captain_xtra, na.rm = TRUE)),
+    total_without_cpt  = total_pts - total_captain_xtra,
+    prop = round(total_captain_xtra / total_pts, 2)
+  ) |>
+  select(manager_id, display_name, colour_hex, total_pts, total_captain_xtra, total_without_cpt, prop) |> 
+  rank_variable(var = total_without_cpt, high_to_low = TRUE) |> 
+  mutate(prop = scales::percent_format()(prop))
+
+mgr_without_cpt <- captainless_fpl |> filter(manager_id == mgr)
+y_min <- round(min(captainless_fpl$total_without_cpt) * 0.95, -2)
+y_max <- round(max(captainless_fpl$total_pts) * 1.05, -2)
+
+```
+
+What if we removed captaincy from the game? No more last-minute decisions, no more wondering whether he's going to play or not, and of course, no more perma-captain Haaland. The impact captaincy has on our league is demonstrated below in @fig-captainless-fpl.
+
+This season your captain contributed **`r mgr_without_cpt$total_captain_xtra` points**, which equates to around **`r mgr_without_cpt$prop`** of your total points this season. 
+
+Without captaincy you would have finished with **`r scales::comma(mgr_without_cpt$total_without_cpt)` points**, which would have ranked you `r if (mgr_without_cpt$total_without_cpt_tied) "joint"` **`r mgr_without_cpt$total_without_cpt_rank_char`** in the league. `r if (mgr_without_cpt$total_without_cpt_rank_num < mgr_final_position_num) paste0("This suggests captaincy was actually a weak point this season; despite finishing ", mgr_final_position_char, ", you would have ranked higher without the captaincy element, meaning your captain picks cost you relative to the rest of the league.") else if (mgr_without_cpt$total_without_cpt_rank_num > mgr_final_position_num) paste0("This suggests captaincy was a real strength this season; your captain picks added enough points to lift you from ", mgr_without_cpt$total_without_cpt_rank_char, " to ", mgr_final_position_char, " in the league.") else "Captaincy neither helped nor hindered your final position this season; your rank remains the same with or without the captain bonus."`
+
+```{r}
+#| label: fig-captainless-fpl
+#| fig-cap: "What life would look like without making captaincy decisions."
+
+cpt_order <- captainless_fpl |>
+  arrange(desc(total_without_cpt)) |>
+  pull(display_name)
+
+p <- plot_ly()
+ 
+for (m in cpt_order) {
+ 
+  d   <- filter(captainless_fpl, display_name == m)
+  col <- d$colour_hex[1]   # this manager's colour, straight from the data
+ 
+  # Ghost bar: full total_pts at low opacity, label sits above it
+  p <- add_bars(p,
+    x            = d$display_name,
+    y            = d$total_pts,
+    marker       = list(color = rgba_col(col, 0.3)),
+    text         = comma(d$total_pts),
+    textposition = "outside",
+    textfont     = list(color = "#F2F2F2", size = 12, weight = "bold"),
+    hoverinfo    = "none",
+    showlegend   = FALSE
+  )
+  
+  p <- add_bars(p,
+    x            = d$display_name,
+    y            = d$total_without_cpt,
+    marker       = list(color = rgba_col(col, 1.0)),
+    text         = comma(d$total_without_cpt),
+    textposition = "inside",
+    textfont     = list(color = "white", size = 12, weight = "bold"),
+    hoverinfo    = "none",
+    showlegend   = FALSE
+  )
+}
+
+cpt_labels <- captainless_fpl |>
+  arrange(desc(total_without_cpt)) |>
+  mutate(
+    label_y   = total_without_cpt + (total_captain_xtra / 2),
+    label_txt = paste0("+", total_captain_xtra)
+  )
+ 
+p <- add_trace(p,
+  data       = cpt_labels,
+  x          = ~display_name,
+  y          = ~label_y,
+  type       = "scatter",
+  mode       = "text",
+  text       = ~label_txt,
+  textfont   = list(color = "#F2F2F2", size = 12, weight = "bold"),
+  hoverinfo  = "none",
+  showlegend = FALSE
+)
+
+p <- p |>
+  layout(
+    barmode = "overlay",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title         = "",
+      categoryorder = "array",
+      categoryarray = cpt_order,
+      color         = "#F2F2F2",
+      tickfont      = list(color = "#F2F2F2")
+    ),
+    yaxis = list(
+      title      = "Points",
+      range      = c(y_min, y_max),
+      tickvals   = seq(y_min, y_max, by = 100),
+      tickformat = ",",
+      color      = "#F2F2F2",
+      tickfont   = list(color = "#F2F2F2"),
+      titlefont  = list(color = "#F2F2F2"),
+      gridcolor  = "#3A3A3A"
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323",
+    showlegend    = TRUE
+  ) |>
+  config(displayModeBar = FALSE)
+
+p
+```
+
+---
+
+## Chips
+
+### Free Hit
+
+```{r}
+#| label: free_hit
+
+fh_data <- data$standings |>
+  filter(chip %in% c("FH1", "FH2"))
+
+fh_agg_data <- fh_data |> 
+  group_by(display_name) |> 
+  summarise(total_fh_points = sum(gw_net)) |>
+  rank_variable(var = total_fh_points, high_to_low = TRUE)
+
+mgr_fh <- fh_data |>
+  filter(manager_id == mgr) |>
+  left_join(
+    data$standings |>
+      filter(gameweek_id %in% fh_data$gameweek_id) |>
+      group_by(gameweek_id) |>
+      summarise(gw_avg = round(mean(gw_net), 1)),
+    by = "gameweek_id"
+  ) |>
+  mutate(vs_avg = gw_net - gw_avg)
+
+fh_best  <- fh_data |> slice_max(gw_net, n = 1, with_ties = FALSE)
+fh_worst <- fh_data |> slice_min(gw_net, n = 1, with_ties = FALSE)
+fh_popular <- fh_data |> count(gameweek_id) |> ungroup() |>  slice_max(n, n = 1, with_ties = TRUE) |> pull(gameweek_id) |> glue::glue_collapse(sep = ", ", last = " and ")
+```
+
+The Free Hit chip allows you to make unlimited transfers for a single gameweek, with your squad reverting to its original state the following week. Each manager has two Free Hits available across the season.
+
+This season your first Free Hit came in GW`r mgr_fh$gameweek_id[1]`, where you scored **`r mgr_fh$gw_net[1]` points** against a league average of **`r mgr_fh$gw_avg[1]`**.
+
+Your second Free Hit was in GW`r mgr_fh$gameweek_id[2]`, where you scored **`r mgr_fh$gw_net[2]` points** against a league average of **`r mgr_fh$gw_avg[2]`**.
+
+Across the league, the best Free Hit of the season came from **`r fh_best$display`** in GW`r fh_best$gameweek_id` with **`r fh_best$gw_net` points**, while the least successful was **`r fh_worst$display`** in GW`r fh_worst$gameweek_id` with **`r fh_worst$gw_net` points**.
+
+The most popular weeks to Free Hit this year were gameweeks `r fh_popular`.
+
+The Free Hit scores for all managers can be found below in @fig-free-hit. 
+
+```{r}
+#| label: fig-free-hit
+#| fig-cap: "Free Hit gameweek scores for each manager this season."
+
+mgr_order <- fh_data |>
+  group_by(display_name) |>
+  summarise(total = sum(gw_net)) |>
+  arrange(total) |>
+  pull(display_name)
+
+fh1_data <- filter(fh_data, chip == "FH1")
+fh2_data <- filter(fh_data, chip == "FH2")
+
+p <- plot_ly()
+
+p <- p |> 
+  add_bars(
+    data             = fh1_data,
+    x                = ~gw_net,
+    y                = ~display_name,
+    orientation      = "h",
+    name             = "FH1",
+    marker           = list(color = "#4EC9B0"),
+    text             = ~gw_net,
+    textposition     = "inside",
+    insidetextanchor = "middle",
+    textfont         = list(color = "#4D4D4D", size = 11),
+    hovertemplate    = ~paste0(                        
+                          "<i><b>", display_name, "</b></i><br>",
+                          "<b>GW: </b>", gameweek_id, "<br>",
+                          "<b>FH1: </b>", gw_net, "<extra></extra>"
+                       )
+  ) 
+
+p <- p |> 
+  add_bars(
+    data             = fh2_data,
+    x                = ~gw_net,
+    y                = ~display_name,
+    orientation      = "h",
+    name             = "FH2",
+    marker           = list(color = "#F0A500"),
+    text             = ~gw_net,
+    textposition     = "inside",
+    insidetextanchor = "middle",
+    textfont         = list(color = "#4D4D4D", size = 11),
+    hovertemplate    = ~paste0(                        
+                          "<i><b>", display_name, "</b></i><br>",
+                          "<b>GW: </b>", gameweek_id, "<br>",
+                          "<b>FH2: </b>", gw_net, "<extra></extra>"
+                       )
+  )
+
+p <- p |> 
+  layout(
+    barmode = "stack",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "Points",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title         = " ",
+      categoryorder = "array",
+      categoryarray = mgr_order,
+      color         = "#F2F2F2",
+      tickfont      = list(color = "#F2F2F2")
+    ),
+    legend = list(
+      orientation = "h",
+      x           = 0.5,
+      xanchor     = "center",
+      y           = 1.12,
+      font        = list(color = "#F2F2F2")
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  config(displayModeBar = FALSE)
+
+p
+```
+
+### Bench Boost
+
+```{r}
+#| label: bench_boost
+
+bb_data <- data$squads |> 
+  group_by(gameweek_id, display_name, manager_id) |> 
+  summarise(
+    bb_points = sum(points[player_slot %in% 12:15 & actual_start == "Played"]),
+    gw_points = sum(points[actual_start %in% c("Played", "Sub On")]),
+    no_bb_points = gw_points - bb_points
+  ) |> 
+  mutate(
+    bb = case_when(
+      gameweek_id <= 19 & bb_points > 0 ~ "BB1",
+      gameweek_id >  19 & bb_points > 0 ~ "BB2",
+      TRUE ~ NA
+    ),
+    prop = round(bb_points / gw_points, 2)
+  ) |> 
+  filter(bb == "BB1" | bb == "BB2") |> 
+  ungroup()
+
+bb_agg_data <- bb_data |> 
+  group_by(display_name, manager_id) |> 
+  summarise(total_bb_points = sum(bb_points)) |>
+  ungroup() |> 
+  rank_variable(var = total_bb_points, high_to_low = TRUE)
+
+mgr_bb_agg <- bb_agg_data |>
+  filter(manager_id == mgr)
+
+mgr_bb <- bb_data |>
+  filter(manager_id == mgr) |>
+  left_join(
+    data$standings |>
+      filter(gameweek_id %in% bb_data$gameweek_id) |>
+      group_by(gameweek_id) |>
+      summarise(gw_avg = round(mean(gw_net), 1)),
+    by = "gameweek_id"
+  ) |>
+  mutate(vs_avg = gw_points - gw_avg)
+
+bb_best <- bb_data |>
+  ungroup() |>
+  slice_max(prop, n = 1, with_ties = FALSE)
+
+bb_worst <- bb_data |>
+  ungroup() |>
+  slice_min(prop, n = 1, with_ties = FALSE)
+
+bb_popular <- bb_data |> count(gameweek_id) |> ungroup() |> slice_max(n, n = 1, with_ties = TRUE) |> pull(gameweek_id) |> glue::glue_collapse(sep = ", ", last = " and ")
+
+```
+
+This season your first Bench Boost came in GW`r mgr_bb$gameweek_id[1]`, where you scored `r mgr_bb$gw_net[1]` points against a league average of `r mgr_bb$gw_avg[1]` — `r if (mgr_bb$vs_avg[1] >= 0) paste0("**", mgr_bb$vs_avg[1], " points above** the average total score that week.") else paste0("**", mgr_bb$vs_avg[1], " points below** the average total score that week.")` The points gained from your bench provided **`r percent(mgr_bb$prop[1])`** of your total points that gameweek.
+
+Your second Bench Boost was played in GW`r mgr_bb$gameweek_id[2]`, returning `r mgr_bb$gw_net[2]` points against a league average of `r mgr_bb$gw_avg[2]` — `r if (mgr_bb$vs_avg[2] >= 0) paste0("**", mgr_bb$vs_avg[2], " points above** the average total score that week.") else paste0("**", mgr_bb$vs_avg[2], " points below** the average total score that week.")` The points gained from your bench provided **`r percent(mgr_bb$prop[2])`** of your total points that gameweek.
+
+Combined, your Bench Boost chips contributed **`r mgr_bb_agg$total_bb_points` points**, ranking you **`r paste0(if (mgr_bb_agg$total_bb_points_tied) "joint " else "", mgr_bb_agg$total_bb_points_rank_char)`** in the league for Bench Boost returns.
+
+In order to find the most impactful Bench Boost of the season, we should consider the amount of extra points gained as a percentage of the total points for the week. The best Bench Boost of the season belonged to **`r bb_best$display_name`**, who scored **`r bb_best$bb_points` points** in GW`r bb_best$gameweek_id` which accounted for **`r percent(bb_best$prop)`** of their points that week. The least impactful came from **`r bb_worst$display_name`** with **`r bb_worst$bb_points` points** in GW`r bb_worst$gameweek_id`; only **`r percent(bb_worst$prop)`** of their weekly score.
+
+The most popular Bench Boost gameweek across the league was GW`r bb_popular`.
+
+The Bench Boost scores for all managers can be found below in @fig-bench-boost. 
+
+```{r}
+#| label: fig-bench-boost
+#| fig-cap: "Bench Boost gameweek scores for each manager this season."
+
+bb_data <- bb_data |>
+  left_join(data$managers |> select(manager_id, colour_hex), by = "manager_id")
+
+bb_mgr_order <- bb_data |>
+  group_by(display_name) |>
+  summarise(total_bb = sum(bb_points)) |>
+  arrange(desc(total_bb)) |>
+  pull(display_name)
+
+bb1_data <- bb_data |> filter(bb == "BB1")
+bb2_data <- bb_data |> filter(bb == "BB2")
+
+p <- plot_ly()
+
+p <- p |> 
+  add_bars(
+    data             = bb1_data,
+    x                = ~bb_points,
+    y                = ~display_name,
+    orientation      = "h",
+    name             = "BB1",
+    marker           = list(color = "#4EC9B0"),
+    text             = ~bb_points,
+    textposition     = "inside",
+    insidetextanchor = "middle",
+    textfont         = list(color = "#4D4D4D", size = 11),
+    hovertemplate    = ~paste0(
+                          "<i><b>", display_name, "</b></i><br>",
+                          "<b>GW: </b>", gameweek_id, "<br>",
+                          "<b>BB1: </b>", bb_points, "<extra></extra>"
+                       )
+  )
+
+p <- p |> 
+  add_bars(
+    data             = bb2_data,
+    x                = ~bb_points,
+    y                = ~display_name,
+    orientation      = "h",
+    name             = "BB2",
+    marker           = list(color = "#F0A500"),
+    text             = ~bb_points,
+    textposition     = "inside",
+    insidetextanchor = "middle",
+    textfont         = list(color = "#4D4D4D", size = 11),
+    hovertemplate    = ~paste0(
+                          "<i><b>", display_name, "</b></i><br>",
+                          "<b>GW: </b>", gameweek_id, "<br>",
+                          "<b>BB2: </b>", bb_points, "<extra></extra>"
+                       )
+  )
+
+p <- p |> 
+  layout(
+    barmode = "stack",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "Points",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title         = " ",
+      categoryorder = "array",
+      categoryarray = rev(bb_mgr_order),
+      color         = "#F2F2F2",
+      tickfont      = list(color = "#F2F2F2")
+    ),
+    legend = list(
+      orientation = "h",
+      x           = 0.5,
+      xanchor     = "center",
+      y           = 1.12,
+      font        = list(color = "#F2F2F2")
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  config(displayModeBar = FALSE)
+
+p
+```
+
+### Triple Captain
+
+```{r}
+#| label: triple_captain
+
+tc_data <- data$squads |> 
+  filter(actual_start == "Played") |> 
+  left_join(
+    data$standings |> select(manager_id, gameweek_id, chip),
+    by = c("manager_id", "gameweek_id")
+  ) |> 
+  filter((chip == "TC1" | chip == "TC2") & earned_captain == TRUE)
+
+tc_agg_data <- tc_data |> 
+  group_by(manager_id) |> 
+  summarise(total_tc_points = sum(points)) |> 
+  rank_variable(var = total_tc_points, high_to_low = TRUE)
+
+mgr_tc_agg <- tc_agg_data |>
+  filter(manager_id == mgr)
+
+mgr_tc1_tc2 <- tc_data |>
+  filter(manager_id == mgr)
+
+tc_best <- tc_data |>
+  ungroup() |>
+  slice_max(points, n = 1, with_ties = FALSE)
+
+tc_worst <- tc_data |>
+  ungroup() |>
+  slice_min(points, n = 1, with_ties = FALSE)
+
+tc_popular <- tc_data |> count(gameweek_id) |> ungroup() |> slice_max(n, n = 1, with_ties = TRUE) |> pull(gameweek_id) |> glue::glue_collapse(sep = ", ", last = " and ")
+```
+
+Your first Triple Captain came in GW`r mgr_tc1_tc2$gameweek_id[1]`, where **`r mgr_tc1_tc2$player[1]`** returned **`r mgr_tc1_tc2$points[1]` points** with the armband. Your second was played in GW`r mgr_tc1_tc2$gameweek_id[2]`, where **`r mgr_tc1_tc2$player[2]`** returned **`r mgr_tc1_tc2$points[2]` points**. Combined, your Triple Captain chips contributed **`r mgr_tc_agg$total_tc_points` points**, ranking you **`r if (mgr_tc_agg$total_tc_points_tied) "joint"` `r mgr_tc_agg$total_tc_points_rank_char`** in the league for Triple Captain returns.
+
+ The standout Triple Captain of the season belonged to **`r tc_best$display`**, who scored **`r tc_best$points` points** from **`r tc_best$player`** in GW`r tc_best$gameweek_id`. At the other end, the toughest Triple Captain week was **`r tc_worst$display`** in GW`r tc_worst$gameweek_id`, where **`r tc_worst$player`** returned just **`r tc_worst$points` points**.
+
+The most popular Triple Captain gameweek across the league was GW`r tc_popular`.
+
+The Triple Captain scores for all managers can be found below in @fig-triple-captain. 
+
+```{r}
+#| label: fig-triple-captain
+#| fig-cap: "Triple Captain scores for each manager."
+
+tc_mgr_order <- tc_data |>
+  group_by(display_name) |>
+  summarise(total_tc = sum(points)) |>
+  arrange(desc(total_tc)) |>
+  pull(display_name)
+
+tc1_data <- tc_data |> filter(chip == "TC1")
+tc2_data <- tc_data |> filter(chip == "TC2")
+
+p <- plot_ly()
+
+p <- p |> 
+  add_bars(
+    data             = tc1_data,
+    x                = ~points,
+    y                = ~display_name,
+    orientation      = "h",
+    name             = "TC1",
+    marker           = list(color = "#4EC9B0"),
+    text             = ~points,
+    textposition     = "inside",
+    insidetextanchor = "middle",
+    textfont         = list(color = "#4D4D4D", size = 11),
+    hovertemplate    = ~paste0(
+                          "<i><b>", display_name, "</b></i><br>",
+                          "<b>GW: </b>", gameweek_id, "<br>",
+                          "<b>Player: </b>", player, "<br>",
+                          "<b>TC1: </b>", points, "<extra></extra>"
+                       )
+  )
+
+p <- p |> 
+  add_bars(
+    data             = tc2_data,
+    x                = ~points,
+    y                = ~display_name,
+    orientation      = "h",
+    name             = "TC2",
+    marker           = list(color = "#F0A500"),
+    text             = ~points,
+    textposition     = "inside",
+    insidetextanchor = "middle",
+    textfont         = list(color = "#4D4D4D", size = 11),
+    hovertemplate    = ~paste0(
+                          "<i><b>", display_name, "</b></i><br>",
+                          "<b>GW: </b>", gameweek_id, "<br>",
+                          "<b>Player: </b>", player, "<br>",
+                          "<b>TC2: </b>", points, "<extra></extra>"
+                       )
+  )
+
+p <- p |> 
+  layout(
+    barmode = "stack",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "Points",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title         = " ",
+      categoryorder = "array",
+      categoryarray = rev(tc_mgr_order),
+      color         = "#F2F2F2",
+      tickfont      = list(color = "#F2F2F2")
+    ),
+    legend = list(
+      orientation = "h",
+      x           = 0.5,
+      xanchor     = "center",
+      y           = 1.12,
+      font        = list(color = "#F2F2F2")
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  config(displayModeBar = FALSE)
+
+p
+```
+
+---
+
+## Squad
+
+```{r}
+#| label: all_squad_overview
+
+all_squad_overview <- data$manager_summary |> 
+  ungroup() |>
+  select(manager_id, manager_player_summary) |>
+  unnest(manager_player_summary) |> 
+  group_by(manager_id) |> 
+  summarise(
+    players_owned = n_distinct(player),
+    players_played = sum(played > 0),
+    players_oneweek = sum(owned == 1)
+  ) |> 
+  mutate(
+    played_prop = round(players_played / players_owned, 2),
+    oneweek_prop = round(players_oneweek / players_owned, 2)
+  ) |> 
+  rank_variable(var = players_owned, high_to_low = TRUE) |> 
+  rank_variable(var = players_played, high_to_low = TRUE) |> 
+  rank_variable(var = players_oneweek, high_to_low = TRUE) |> 
+  rank_variable(var = played_prop, high_to_low = TRUE) |>
+  rank_variable(var = oneweek_prop, high_to_low = TRUE) |> 
+  left_join(data$managers, by = "manager_id")
+
+```
+
+```{r}
+#| label: mgr_squad_overview
+
+mgr_squad_overview <- all_squad_overview |> 
+  filter(manager_id == mgr)
+
+```
+
+Over the course of the `r season` season you owned **`r mgr_squad_overview$players_owned`** unique players in total, of which **`r mgr_squad_overview$players_played`** were selected in your starting eleven (or bench boost) for at least one gameweek. This is a selection rate of **`r percent(mgr_squad_overview$played_prop, accuracy = 0.1)`**.
+
+There were **`r mgr_squad_overview$players_oneweek`** players that were only in your squad for one gameweek, and these one-week wonders made up **`r percent(mgr_squad_overview$oneweek_prop, accuracy = 0.1)`** of all players you had in your team.
+
+```{r}
+#| label: tbl-all-players-owned
+#| tbl-cap: !expr paste("The number of unique players owned, played, and held for just one gameweek by each manager throughout the", season, "season.")
+
+tbl_all_squad_overview <- all_squad_overview |> 
+  select(display_name, colour_hex,players_owned, players_played, played_prop, players_oneweek, oneweek_prop) |>
+  arrange(desc(players_owned))
+
+tbl_all_squad_overview |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      display_name = colDef(
+        name = "Manager",
+        maxWidth = 100
+      ),
+      players_owned = colDef(
+        name = "Owned",
+        maxWidth = 100
+      ),
+      players_played = colDef(
+        name = "Played",
+        maxWidth = 100
+      ),
+      played_prop = colDef(
+        name = "Played %",
+        minWidth = 200,
+        format = colFormat(percent = TRUE, digits = 0),
+        cell = data_bars(
+          data = tbl_all_squad_overview,
+          text_position = "above",
+          fill_color_ref = "colour_hex",
+          text_color = "#F2F2F2",
+          number_fmt = percent_format(accuracy = 1),
+          max_value = 1
+        )
+      ),
+      players_oneweek = colDef(
+        name = "One Week",
+        minWidth = 130
+      ),
+      oneweek_prop = colDef(
+        name = "One Week %",
+        minWidth = 200,
+        format = colFormat(percent = TRUE, digits = 0),
+        cell = data_bars(
+          data = tbl_all_squad_overview,
+          text_position = "above",
+          fill_color_ref = "colour_hex",
+          text_color = "#F2F2F2",
+          number_fmt = percent_format(accuracy = 1),
+          max_value = 1
+        )
+      ),
+      colour_hex = colDef(show = FALSE)
+    )
+  )
+
+```
+
+<br>
+
+### Top Scorers
+
+```{r}
+#| label: top_points_players
+
+mgr_top_players_pts <- mgr_players |>
+  mutate(played_pts_prop = percent(played_pts / sum(played_pts), accuracy = 0.1)) |> 
+  slice_max(played_pts, n = 10) |>
+  arrange(played_pts) |> 
+  cross_join(mgr_info)
+
+# Top scoring player by points
+mgr_top_scorer_pts <- mgr_top_players_pts |>
+  slice_max(played_pts, n = 1, with_ties = FALSE)
+
+# Share of total mgr points by top 10 players
+mgr_top10_share <- mgr_players |>
+  slice_max(played_pts, n = 10) |>
+  summarise(total = sum(played_pts)) |>
+  pull(total) |>
+  (\(x) percent(x / sum(mgr_players$played_pts), accuracy = 0.1))()
+
+```
+
+```{r}
+#| label: top_ppg_players
+
+mgr_top_players_ppg <- mgr_players |>
+  mutate(played_pts_prop = played_pts / sum(played_pts)) |> 
+  filter(played >= 5) |> 
+  slice_max(avg_played_pts, n = 10) |>
+  arrange(avg_played_pts) |> 
+  cross_join(mgr_info)
+
+mgr_top_scorer_ppg <- mgr_top_players_ppg |>
+  slice_max(avg_played_pts, n = 1, with_ties = FALSE)
+
+overlap_players <- intersect(mgr_top_players_pts$player, mgr_top_players_ppg$player)
+n_overlap <- length(overlap_players)
+
+```
+
+```{r}
+#| label: all_managers_top_10_share
+
+all_manager_top10 <- data$manager_summary |>
+  mutate(
+    # For each manager's nested player data frame (.x), sum the played_pts
+    # of their top 10 players
+    top_10_pts = map_dbl(
+      manager_player_summary,
+      ~ .x |>
+        slice_max(played_pts, n = 10) |>
+        summarise(total = sum(played_pts)) |>
+        pull(total)
+    ),
+    
+    # For each manager, sum played_pts across ALL their players (no slice)
+    total_pts_all = map_dbl(
+      manager_player_summary,
+      ~ sum(.x$played_pts)
+    ),
+    
+    # Top 10 contribution as a percentage of their overall points
+    top_10_share = top_10_pts / total_pts_all
+  ) |> 
+  ungroup() |> 
+  rank_variable(var = top_10_share, high_to_low = TRUE) |> 
+  select(manager_id, top_10_pts, top_10_share, top_10_share_rank_num, top_10_share_rank_char, top_10_share_tied)
+
+mgr_top10 <- all_manager_top10 |> filter(manager_id == mgr) |> pull(top_10_share_rank_char)
+
+```
+
+@fig-top-points-players shows your top 10 point scorers across the season. Your standout performer was **`r mgr_top_scorer_pts$player`**, who returned **`r mgr_top_scorer_pts$played_pts` points** while in your team — a **`r mgr_top_scorer_pts$played_pts_prop`** share of your total points. 
+
+Between them, your top 10 scorers accounted for **`r mgr_top10_share`** of the points your squad generated this season. This was ranked **`r mgr_top10`** among the league, as per @tbl-top-10-share.
+
+::: {style = "float: right; margin-left: 20px; margin-bottom: 10px; width: 40%;"}
+```{r}
+#| label: tbl-top-10-share
+#| tbl-cap: "The proportion of points earned by each manager's top 10 players."
+
+tbl_top_10_share <- all_manager_top10 |>
+  left_join(data$managers, by = "manager_id") |> 
+  arrange(top_10_share_rank_num) |>
+  select(display_name, top_10_share, colour_hex)
+
+tbl_top_10_share |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      display_name = colDef(
+        name = "Manager",
+        maxWidth = 100
+      ),
+      top_10_share = colDef(
+        name = "Top 10 %",
+        minWidth = 200,
+        cell = data_bars(
+          data = tbl_top_10_share,
+          text_position = "above",
+          fill_color_ref = "colour_hex",
+          text_color = "#F2F2F2",
+          number_fmt = percent_format(accuracy = 1),
+          max_value = 1
+        )
+      ),
+      colour_hex = colDef(show = FALSE)
+    )
+  )
+
+```
+:::
+
+
+```{r}
+#| label: fig-top-points-players
+#| fig-cap: "Your top 10 players by total points returned when played."
+
+plot_ly(
+  data        = mgr_top_players_pts,
+  x           = ~played_pts,
+  y           = ~factor(player, levels = player),
+  type        = "bar",
+  orientation = "h",
+  marker      = list(color = ~colour_hex),
+  text        = ~played_pts,
+  textposition    = "inside",
+  insidetextanchor = "end",
+  textfont    = list(
+    color = "#F2F2F2", 
+    size = 12,
+    weight = "bold"
+  ),
+  hovertemplate = ~paste0(
+                    "<b><i>", player, "</b></i><br>",
+                    "<b>Points: </b>", played_pts, "<br>",
+                    "<b>Games: </b>", played, "<br>",
+                    "<b>PPG: </b>", avg_played_pts, "<br>", 
+                    "<b>Share: </b>", played_pts_prop, "<extra></extra>"
+                  )
+) |>
+  
+  layout(
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "Points Gained",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title    = "",
+      color    = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2")
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  config(displayModeBar = FALSE)
+
+```
+
+<br>
+
+@fig-top-points-players-season tracks how your top performers built their points totals week by week, letting you see whether their contribution was steady across the season or driven by a handful of standout gameweeks.
+
+```{r}
+#| label: fig-top-points-players-season
+#| fig-cap: "A look at how your top scoring players accumulated their points across the season."
+
+top_players_pts_list <- unique(mgr_top_players_pts$player)
+
+top_players_pts_season <- mgr_team |> 
+  filter(player %in% top_players_pts_list) |> 
+  group_by(player) |> 
+  mutate(cumulative_pts = cumsum(points)) |> 
+  ungroup()
+
+p <- plot_ly()
+
+for (name in unique(top_players_pts_season$player)) {
+  
+  top_player_data <- top_players_pts_season |> 
+    filter(player == name) |> 
+    arrange(gameweek_id)
+  
+  p <- p |> 
+    add_trace(
+      data = top_player_data,
+      x = ~gameweek_id,
+      y = ~cumulative_pts,
+      customdata   = ~points,
+      type         = "scatter",
+      mode         = "lines+markers",
+      name         = name,
+      legendgroup  = name,
+      hovertemplate = paste0(
+        "<i><b>", name, "</b></i><br>",
+        "GW %{x}<br>",
+        "GW Points: %{customdata}<br>",
+        "Cumulative: %{y}",
+        "<extra></extra>"
+      )
+    )
+}
+
+p <- p |> 
+  layout(
+    paper_bgcolor = "#232323",
+    plot_bgcolor = "#232323",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title = "Gameweek",
+      gridcolor = "rgba(242,242,242,0.15)",
+      zerolinecolor = "rgba(242,242,242,0.3)",
+      tickvals = c(1, seq(5, 38, by = 5), 38),
+      range = c(0, 39)
+    ),
+    yaxis = list(
+      title = "Cumulative Points",
+      gridcolor = "rgba(242,242,242,0.15)",
+      zerolinecolor = "rgba(242,242,242,0.3)"
+    ),
+    legend = list(font = list(color = "#F2F2F2"))
+  )
+
+p
+
+```
+
+@fig-top-ppg-players instead ranks your top 10 players by points per game (PPG), considering only players featured in 5 or more gameweeks. By this measure, your most efficient player was **`r mgr_top_scorer_ppg$player`**, averaging **`r round(mgr_top_scorer_ppg$avg_played_pts, 1)` points** across **`r mgr_top_scorer_ppg$played` gameweeks**.
+
+`r if (n_overlap > 0) paste0("**", n_overlap, "** of your top scorers — including **", paste(overlap_players, collapse = ", "), "** — also rank among your most efficient players, showing they delivered both volume and consistency.") else "None of your top 10 point scorers also rank among your top 10 by points per game, suggesting your highest scorers relied more on minutes played than on consistently high returns."`
+
+```{r}
+#| label: fig-top-ppg-players
+#| fig-cap: "Your top 10 players by PPG. Only players that were played in 5 or more gameweeks qualify."
+
+plot_ly(
+  data        = mgr_top_players_ppg,
+  x           = ~avg_played_pts,
+  y           = ~factor(player, levels = player),
+  type        = "bar",
+  orientation = "h",
+  marker      = list(color = ~colour_hex),
+  text        = ~avg_played_pts,
+  textposition    = "inside",
+  insidetextanchor = "end",
+  textfont    = list(
+    color = "#F2F2F2", 
+    size = 12,
+    weight = "bold"
+  ),
+  hovertemplate = ~paste0(
+                    "<b><i>", player, "</b></i><br>",
+                    "<b>PPG: </b>", avg_played_pts, "<br>",
+                    "<b>Points: </b>", played_pts, "<br>",
+                    "<b>Games: </b>", played, "<br><extra></extra>"
+                  )
+) |>
+  
+  layout(
+    font = list(
+      colour = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "PPG",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title    = "",
+      color    = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2")
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  
+  config(displayModeBar = FALSE)
+
+```
+
+### Donkeys
+
+```{r}
+#| label: bottom_ppg_players
+
+mgr_bottom_players_ppg <- mgr_players |>
+  mutate(played_pts_prop = played_pts / sum(played_pts)) |> 
+  filter(played >= 5) |> 
+  slice_min(avg_played_pts, n = 10) |>
+  arrange(desc(avg_played_pts)) |> 
+  cross_join(mgr_info)
+
+mgr_bottom_scorer_ppg <- mgr_bottom_players_ppg |>
+  slice_min(avg_played_pts, n = 1, with_ties = FALSE)
+
+n_ppg_qualified <- mgr_players |>
+  filter(played >= 5) |>
+  nrow()
+
+```
+
+```{r}
+#| label: bottom_ppg_players_all
+
+all_bottom_ppg_players <- data$manager_summary |>
+  ungroup() |>
+  select(display_name, manager_player_summary) |>
+  unnest(manager_player_summary) |>
+  filter(played >= 5) |>
+  slice_min(avg_played_pts, n = 10, with_ties = FALSE) |>
+  arrange(avg_played_pts) |>
+  rank_variable(var = avg_played_pts, high_to_low = FALSE)
+
+```
+
+@fig-bottom-ppg-players below shows your 10 worst performing players by PPG, considering only players who featured in **5 or more gameweeks**. This threshold filters out players who only made brief appearances, where a small number of bad weeks can distort the average. 
+
+Of the **`r n_ppg_qualified` players** who met this threshold, your least efficient player was **`r mgr_bottom_scorer_ppg$player`**, averaging just **`r mgr_bottom_scorer_ppg$avg_played_pts` points** across the **`r mgr_bottom_scorer_ppg$played` gameweeks** you started him.
+
+@tbl-bottom-ppg-players-all provides a quick look at the top 10 worst performing players by PPG across the league.
+
+```{r}
+#| label: fig-bottom-ppg-players
+#| fig-cap: "Your 10 worst performing players by PPG."
+
+plot_ly(
+  data        = mgr_bottom_players_ppg,
+  x           = ~avg_played_pts,
+  y           = ~factor(player, levels = player),
+  type        = "bar",
+  orientation = "h",
+  marker      = list(color = ~colour_hex),
+  text        = ~avg_played_pts,
+  textposition    = "inside",
+  insidetextanchor = "end",
+  textfont    = list(
+    color = "#F2F2F2", 
+    size = 12,
+    weight = "bold"
+  ),
+  hovertemplate = ~paste0(
+                    "<b><i>", player, "</b></i><br>",
+                    "<b>PPG: </b>", avg_played_pts, "<br>",
+                    "<b>Points: </b>", played_pts, "<br>",
+                    "<b>Games: </b>", played, "<br><extra></extra>"
+                  )
+) |>
+  
+  layout(
+    font = list(
+      colour = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "PPG",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title    = "",
+      color    = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2")
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  
+  config(displayModeBar = FALSE)
+
+```
+
+```{r}
+#| label: tbl-bottom-ppg-players-all
+#| tbl-cap: "The top 10 worst performing players across the league for PPG."
+
+tbl_bottom_ppg_players_all <- all_bottom_ppg_players |>
+  select(player, avg_played_pts, played, display_name) 
+  
+tbl_bottom_ppg_players_all |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      player = colDef(
+        name = "Player",
+        minWidth = 120
+      ),
+      avg_played_pts = colDef(
+        name = "PPG",
+        maxWidth = 100,
+        format = colFormat(digits = 1)
+      ),
+      played = colDef(
+        name = "Games",
+        maxWidth = 100
+      ),
+      display_name = colDef(
+        name = "Manager",
+        maxWidth = 100
+      )
+    )
+  )
+
+```
+
+### Selection Headaches
+
+```{r}
+#| label: avg_pts_diff
+
+mgr_players_diff <- mgr_players |> 
+  filter(owned >= 5) |> 
+  mutate(
+    avg_pts_diff = avg_played_pts - avg_bench_pts
+  ) |> 
+  filter(avg_pts_diff < 0) |> 
+  arrange(desc(avg_pts_diff)) |> 
+  cross_join(mgr_info)
+
+bench_players_better <- nrow(mgr_players_diff)
+
+worst_diff_player <- mgr_players_diff |>
+  slice_min(avg_pts_diff, n = 1, with_ties = FALSE)
+
+```
+
+```{r}
+#| label: avg_pts_diff_all
+
+all_players_diff <- data$manager_summary |>
+  ungroup() |>
+  select(manager_id, manager_player_summary) |>
+  unnest(manager_player_summary) |>
+  filter(owned >= 5) |>
+  mutate(avg_pts_diff = avg_played_pts - avg_bench_pts) |>
+  filter(avg_pts_diff < 0) |> 
+  slice_min(avg_pts_diff, n = 10, with_ties = FALSE) |>
+  arrange(avg_pts_diff) |>
+  rank_variable(var = avg_pts_diff, high_to_low = FALSE) |> 
+  left_join(data$managers, by = "manager_id")
+
+```
+
+Every FPL manager has faced the agonising moment of leaving a player on the bench who then goes and scores a hatful. @fig-avg-pts-diff looks at your biggest selection headaches of the season — the players where the gap between their PPG when played versus when benched was most pronounced.
+
+Only players you owned for **5 or more gameweeks are considered**, ensuring the comparisons are based on a meaningful sample rather than a fleeting one-week hold.
+
+Your biggest selection headache was **`r worst_diff_player$player`**, who averaged **`r round(worst_diff_player$avg_played_pts, 1)` PPG** when played but **`r round(worst_diff_player$avg_bench_pts, 3)` PPG** when benched — a difference of **`r round(worst_diff_player$avg_pts_diff, 1)` PPG**.
+
+The biggest differences across the league can be seen in @tbl-avg-pts-diff-all.
+
+```{r}
+#| label: fig-avg-pts-diff
+#| fig-cap: "The selection headaches that caused you the most stress this season."
+
+plot_ly(data = mgr_players_diff) |>
+  
+  add_bars(
+    x            = ~avg_played_pts,
+    y            = ~factor(player, levels = player),
+    orientation  = "h",
+    name         = "Played PPG",
+    marker       = list(color = ~colour_hex),
+    hovertemplate = ~paste0(
+      "<b><i>", player, "</b></i><br>",
+      "<b>Difference: </b>", round(avg_pts_diff, 1), "<br>",
+      "<br>",
+      "<b>Played: </b>", played, "<br>",
+      "<b>Played PPG: </b>", round(avg_played_pts, 1), "<br>",
+      "<br>",
+      "<b>Benched: </b>", remain_bench, "<br>",
+      "<b>Bench PPG: </b>", round(avg_bench_pts, 1),
+      "<extra></extra>"
+    )
+  ) |>
+  
+  add_bars(
+    x            = ~avg_bench_pts,
+    y            = ~factor(player, levels = player),
+    orientation  = "h",
+    name         = "Bench PPG",
+    marker       = list(color = ~rgba_col(colour_hex, 0.35)),
+    hovertemplate = ~paste0(
+      "<b><i>", player, "</b></i><br>",
+      "<b>Difference: </b>", round(avg_pts_diff, 1), "<br>",
+      "<br>",
+      "<b>Played: </b>", played, "<br>",
+      "<b>Played PPG: </b>", round(avg_played_pts, 1), "<br>",
+      "<br>",
+      "<b>Benched: </b>", remain_bench, "<br>",
+      "<b>Bench PPG: </b>", round(avg_bench_pts, 1),
+      "<extra></extra>"
+    )
+  ) |>
+  
+  layout(
+    barmode = "group",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "Points per Game",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title    = "",
+      color    = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2")
+    ),
+    legend = list(
+      bgcolor     = "#2E2E2E",
+      bordercolor = "#3A3A3A",
+      borderwidth = 1
+    ),
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323"
+  ) |>
+  
+  config(displayModeBar = FALSE)
+
+```
+
 ---
 
 ```{r}
