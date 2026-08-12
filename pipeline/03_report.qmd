@@ -7,6 +7,7 @@ format:
     embed-resources: true
     toc: true
     toc-location: left
+    toc-expand: true
     toc-title: Contents
     fig-dpi: 150
     fig-width: 8
@@ -21,7 +22,7 @@ execute:
   warning: false
   message: false
 params:
-  manager_id: 1
+  manager_id: 2
   current_season: "25_26"
 ---
 
@@ -40,6 +41,7 @@ library(reactablefmtr)
 library(tippy)
 library(htmlwidgets)
 library(plotly)
+library(crosstalk)
 ```
 
 ```{r}
@@ -60,7 +62,6 @@ data <- imap(data, \(df, name) {
     df
   }
 })
-
 ```
 
 ```{r}
@@ -417,6 +418,7 @@ tbl_league_position <- mgr_season |>
 
 tbl_league_position |> 
   fpl_table(
+    fullWidth = FALSE,
     columns = list(
       
       season_standing = colDef(
@@ -434,6 +436,7 @@ tbl_league_position |>
       percent = colDef(
         name = "Season %",
         align = "center",
+        minWidth = 300,
         cell = data_bars(
           data = tbl_league_position,
           text_position = "above",
@@ -2253,6 +2256,388 @@ plot_ly(data = mgr_players_diff) |>
   
   config(displayModeBar = FALSE)
 
+```
+
+```{r}
+#| label: tbl-avg-pts-diff-all
+#| tbl-cap: "The worst selection headaches across the league this season."
+
+tbl_all_players_diff <- all_players_diff |> 
+  select(display_name, player, played, avg_played_pts, remain_bench, avg_bench_pts, avg_pts_diff)
+
+tbl_all_players_diff |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      display_name = colDef(
+        name = "Manager",
+        maxWidth = 100
+      ),
+      player = colDef(
+        name = "Player",
+        width = 150
+      ),
+      played = colDef(
+        name = "Games",
+        maxWidth = 120
+      ),
+      avg_played_pts = colDef(
+        name = "PPG",
+        maxWidth = 100
+      ),
+      remain_bench = colDef(
+        name = "Games",
+        maxWidth = 120
+      ),
+      avg_bench_pts = colDef(
+        name = "PPG",
+        maxWidth = 100
+      ),
+      avg_pts_diff = colDef(
+        name = "Difference",
+        width = 120
+      )
+    ),
+    
+    columnGroups = list(
+      colGroup(name = "Played", columns = c("played", "avg_played_pts")),
+      colGroup(name = "Benched", columns = c("remain_bench", "avg_bench_pts"))
+    )
+  )
+  
+```
+
+---
+
+## Transfers
+
+### Activity
+
+In the `r season` season, each manager had 33 eligible gameweeks to use their transfers. Gameweeks are ineligible for transfers when:
+
+- It is GW1. Transfers are unlimited up until the GW1 deadline.
+- A Free Hit has been activated (twice a season).
+- A Wildcard has been activated (twice a season).
+
+```{r}
+#| label: transfer_activity
+
+all_transfer_activity <- data$standings |> 
+  select(display_name, gameweek_id, gw_transfers) |> 
+  pivot_wider(
+    id_cols = display_name,
+    names_from = gameweek_id,
+    values_from = gw_transfers,
+    values_fill = 0
+  )
+
+heatmap_managers <- all_transfer_activity$display_name
+heatmap_matrix <- all_transfer_activity |> 
+  select(-display_name) |> 
+  as.matrix()
+
+text_matrix <- heatmap_matrix
+text_matrix[text_matrix == 0] <- ""
+
+```
+
+```{r}
+#| label: fig-transfer-activity
+#| fig-cap: "The number of transfers made by each manager in each gameweek."
+
+p <- plot_ly(
+  x          = as.numeric(colnames(heatmap_matrix)),
+  y          = heatmap_managers,
+  z          = heatmap_matrix,
+  type       = "heatmap",
+  text       = text_matrix,
+  texttemplate = "%{text}",
+  textfont = list(color = "#F2F2F2"),
+  colorscale = list(
+    list(0, "#440154"),
+    list(0.25, "#3b528b"),
+    list(0.5, "#21918c"),
+    list(0.75, "#5ec962"),
+    list(1, "#fdd100")
+  ),
+  colorbar = list(
+    title      = "Transfers",
+    tickfont   = list(color = "#F2F2F2"),
+    titlefont  = list(color = "#F2F2F2")
+  ),
+  hovertemplate = paste0(
+    "<i><b>%{y}</b></i><br>",
+    "GW: %{x}<br>",
+    "Transfers: %{z}",
+    "<extra></extra>"
+  )
+) |>
+  layout(
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title     = "Gameweek",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      tickvals  = c(1, seq(5, 38, by = 5), 38),
+      gridcolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title     = "",
+      color     = "#F2F2F2",
+      tickfont  = list(color = "#F2F2F2"),
+      gridcolor = "#3A3A3A"
+    )
+  )
+
+p
+
+```
+
+### Returns
+
+```{r}
+#| label: all_transfers_roi_cumulative
+
+all_transfer_roi_cumulative <- data$transfers |> 
+  group_by(gameweek_id, manager_id) |> 
+  summarise(
+    transfers = n(),
+    gw_roi = sum(points_diff),
+    .groups = "drop"
+  ) |> 
+  # Create the full grid and join onto it
+  complete(
+    manager_id = unique(data$transfers$manager_id),
+    gameweek_id = 1:final_gw,
+    fill = list(transfers = 0, gw_roi = 0)
+  ) |> 
+  left_join(
+    data$standings |> select(manager_id, display_name, colour_hex, gameweek_id, ft_remaining, extra_trf, hit_points), 
+    by = c("manager_id", "gameweek_id")
+  ) |> 
+  group_by(manager_id) |> 
+  arrange(gameweek_id, .by_group = TRUE) |> 
+  mutate(
+    cumulative_transfers = cumsum(transfers),
+    gw_roi_with_hits = gw_roi + hit_points,
+    cumulative_roi = cumsum(gw_roi_with_hits),
+    ppt = cumulative_roi / cumulative_transfers
+  ) |> 
+  ungroup()
+
+all_final_transfer_roi <- all_transfer_roi_cumulative |> 
+  filter(gameweek_id == final_gw) |> 
+  rank_variable(var = cumulative_roi, high_to_low = TRUE) |> 
+  rank_variable(var = ppt, high_to_low = TRUE)
+
+mgr_final_transfer_roi <- all_final_transfer_roi |> 
+  filter(manager_id == mgr)
+
+```
+
+Transfer return measures whether the players you brought in outscored the players you sold, across every transfer made this season. Each transfer is given a points difference, with positive meaning the incoming player has outperformed the outgoing player since the transfer was made, negative meaning you'd have been better off keeping who you had.
+
+Cumulative transfer return tracks how these individual transfer decisions have compounded over the course of the `r season` season (@fig-all-transfers-roi). A rising line means your transfers have been adding value on balance; a falling line means the churn has cost you points relative to standing pat. This cumulative total is net of any hits that you have taken.
+
+Overall, you finished `r if (mgr_final_transfer_roi$cumulative_roi_tied) "joint"` **`r mgr_final_transfer_roi$cumulative_roi_rank_char`** in cumulative transfer returns with **`r mgr_final_transfer_roi$cumulative_roi`** points across **`r mgr_final_transfer_roi$cumulative_transfers`** transfers. This is an average of **`r round(mgr_final_transfer_roi$ppt, 1)`** points per transfer, which ranks `r if (mgr_final_transfer_roi$ppt_tied) "joint"` **`r mgr_final_transfer_roi$ppt_rank_char`** in the league this season.
+
+The top 10 worst transfers of the `r season` season can be found below in @tbl-worst-transfer-roi.
+
+```{r}
+#| label: fig-all-transfers-roi
+#| fig-cap: "Cumulative transfer returns for all managers throughout the season."
+
+mgr_ids <- unique(all_transfer_roi_cumulative$manager_id)
+ 
+p <- plot_ly()
+ 
+for (mid in mgr_ids) {
+ 
+  mgr_data <- all_transfer_roi_cumulative |>
+    filter(manager_id == mid) |>
+    arrange(gameweek_id)
+ 
+  mgr_name  <- mgr_data$display_name[1]
+  mgr_color <- mgr_data$colour_hex[1]
+  
+    p <- add_trace(
+    p,
+    data        = mgr_data,
+    x           = ~gameweek_id,
+    y           = ~cumulative_roi,
+    type        = "scatter",
+    mode        = "lines+markers",
+    name        = mgr_name,
+    line        = list(color = mgr_color),
+    marker = list(color = mgr_color),
+    hovertemplate = paste0(
+      "<i><b>", mgr_name, "</b></i><br>",
+      "GW: %{x}<br>",
+      "<br>",
+      "GW Transfers: ", mgr_data$transfers, "<br>",
+      "GW Return: ", mgr_data$gw_roi, "<br>",
+      "GW Hits: ", mgr_data$hit_points, "<br>",
+      "<br>",
+      "Cumulative Transfers: ", mgr_data$cumulative_transfers, "<br>",
+      "Cumulative Return: %{y}",
+      "<extra></extra>"
+    )
+  )
+}
+ 
+p <- p |>
+  layout(
+    paper_bgcolor = "#232323",
+    plot_bgcolor  = "#232323",
+    font = list(
+      color = "#F2F2F2",
+      family = "Montserrat"
+    ),
+    xaxis = list(
+      title = "Gameweek",
+      color = "#F2F2F2",
+      tickfont = list(color = "#F2F2F2"),
+      titlefont = list(color = "#F2F2F2"),
+      tickvals = c(1, seq(5, 38, by = 5), 38),
+      range = c(0, 39),
+      gridcolor = "#3A3A3A",
+      zerolinecolor = "#3A3A3A"
+    ),
+    yaxis = list(
+      title     = "Cumulative Return Points",
+      color     = "#F2F2F2",
+      gridcolor = "#3a3a3a",
+      zeroline  = TRUE,
+      zerolinecolor = "#888888"
+    ),
+    legend = list(
+      bgcolor   = "#232323"
+    )
+  )
+ 
+p
+```
+
+```{r}
+#| label: tbl-worst-transfer-roi
+#| tbl-cap: "The top 10 worst transfers this season."
+
+tbl_worst_transfer_return <- data$transfers |> 
+  slice_min(points_diff, n = 10, with_ties = FALSE) |> 
+  rank_variable(var = points_diff, high_to_low = FALSE)
+
+tbl_worst_transfer_return |> 
+  select(display_name, gameweek_id, player_out, points_out, player_in, points_in, points_diff) |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      display_name = colDef(
+        name = "Manager",
+        width = 100
+      ),
+      gameweek_id = colDef(
+        name = "GW",
+        width = 70
+      ),
+      player_out = colDef(
+        name = "Player",
+        width = 150
+      ),
+      points_out = colDef(
+        name = "Points",
+        width = 100
+      ),
+      player_in = colDef(
+        name = "Player",
+        width = 150
+      ),
+      points_in = colDef(
+        name = "Points",
+        width = 100
+      ),
+      points_diff = colDef(
+        name = "Difference",
+        width = 150,
+        cell = data_bars(
+          data = tbl_worst_transfer_return,
+          text_position = "outside-end",
+          fill_color = "red",
+          text_color = "#F2F2F2"
+        )
+      )
+    ),
+    columnGroups = list(
+      colGroup(name = "Transfer Out", columns = c("player_out", "points_out")),
+      colGroup(name = "Transfer In", columns = c("player_in", "points_in"))
+    )
+  )
+
+```
+
+### Rolling
+
+```{r}
+#| label: all_transfer_rolling
+
+all_transfer_rolling <- data$standings |> 
+  filter_out((chip %in% c("WC1", "WC2", "FH1", "FH2")) | (gameweek_id == 1)) |> 
+  group_by(manager_id) |> 
+  summarise(
+    gws_ft_used = sum(ft_used >= 1),
+    gws_rolled  = sum(ft_used == 0 & ft_remaining > 0),
+    total_gws   = n()
+  ) |> 
+  mutate(
+    usage_rate = gws_ft_used / total_gws,
+    roll_rate  = gws_rolled / total_gws
+  ) |> 
+  rank_variable(var = gws_rolled, high_to_low = TRUE)
+
+```
+
+```{r}
+#| label: tbl-all-transfer-rolling
+#| tbl-cap: "How many weeks each manager rolled their free transfer."
+
+tbl_all_transfer_rolling <- all_transfer_rolling |> 
+  left_join(data$managers, by = "manager_id") |> 
+  select(display_name, gws_rolled, roll_rate, colour_hex) |> 
+  arrange(desc(roll_rate))
+
+tbl_all_transfer_rolling |> 
+  fpl_table(
+    fullWidth = FALSE,
+    columns = list(
+      display_name = colDef(
+        name = "Manager",
+        width = 100
+      ),
+      gws_rolled = colDef(
+        name = "GWs Rolled",
+        width = 130
+      ),
+      roll_rate = colDef(
+        name = "Roll %",
+        width = 200,
+        cell = data_bars(
+          data = tbl_all_transfer_rolling,
+          text_position = "above",
+          fill_color_ref = "colour_hex",
+          text_color = "#F2F2F2",
+          number_fmt = percent_format(accuracy = 1),
+          max_value = 1
+        )
+      ),
+      colour_hex = colDef(show = FALSE)
+    )
+  )
+  
 ```
 
 ---

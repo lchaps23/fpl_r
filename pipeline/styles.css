@@ -2,3 +2,8 @@ body {
   font-family: "Montserrat", sans-serif;
   font-size: 16px;
 }
+
+figcaption, caption {
+  font-size: 0.8em;
+  text-align: left;
+}
