@@ -18,7 +18,7 @@ library(glue)
 ```{r}
 #| label: parameters
 
-current_season <- "25_26"
+current_season <- "26_27"
 
 ```
 
@@ -54,6 +54,23 @@ season_result <- tryCatch(
     table_name = "season_standings", 
     data = clean_season, 
     key_cols = c("season_id", "manager_id", "gameweek_id")
+  ),
+  error = function(e) list(error = paste("FAILED:", e$message))
+)
+
+```
+
+## Writing Gameweeks
+
+```{r}
+#| label: writing_gameweeks
+
+gameweeks_result <- tryCatch(
+  db_write(
+    con = con, 
+    table_name = "gameweeks", 
+    data = clean_gameweeks, 
+    key_cols = c("season_id", "date", "gameweek_id")
   ),
   error = function(e) list(error = paste("FAILED:", e$message))
 )
@@ -101,6 +118,7 @@ transfers_result <- tryCatch(
 
 write_results <- list(
   season_standings  = season_result,
+  gameweeks         = gameweeks_result,
   squads            = teams_result,
   transfers         = transfers_result
 )

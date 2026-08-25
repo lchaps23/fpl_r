@@ -100,6 +100,15 @@ clean_season <- clean_season |>
   select(season_id, gameweek_id, manager_id, season_standing, gw_net, gw_z_score, total, cumulative_z, everything())
 
 
+## Clean Gameweeks ---------------------------------------------------------------------------------------------
+#| label: clean_gameweeks
+clean_gameweeks <- raw_season |> 
+  select(date, gameweek_id) |> 
+  distinct(date, gameweek_id) |> 
+  mutate(season_id = current_season) |> 
+  relocate(season_id, .before = 1)
+  
+  
 ## Clean Teams ---------------------------------------------------------------------------------------------
 #| label: clean_teams
 clean_teams <- raw_teams |> 
