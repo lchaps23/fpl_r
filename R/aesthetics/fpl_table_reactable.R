@@ -13,7 +13,7 @@ fpl_table <- function(data, ...) {
     theme = reactableTheme(
       style = list(
         fontFamily = "'Montserrat', sans-serif",
-        fontSize   = "12px",
+        fontSize   = "8px",
         color      = "#F2F2F2",
         background = "#303030"
       ),
@@ -23,8 +23,8 @@ fpl_table <- function(data, ...) {
         borderColor = "#3A3A3A"
       ),
       groupHeaderStyle = list(
-        fontFamily = "Arial, sans-serif",
-        fontSize   = "16px",
+        fontFamily = "Montserrat, sans-serif",
+        fontSize   = "12px",
         textAlign  = "center",
         padding    = "4px 6px"
       ),
@@ -35,14 +35,14 @@ fpl_table <- function(data, ...) {
     defaultColDef = colDef(
       align       = "center",
       headerStyle = list(
-        fontFamily = "Arial, sans-serif",
-        fontSize   = "16px",
+        fontFamily = "Montserrat, sans-serif",
+        fontSize   = "12px",
         textAlign  = "center",
         padding    = "4px 6px"
       ),
       style = list(
-        fontFamily = "Arial, sans-serif",
-        fontSize   = "16px",
+        fontFamily = "Montserrat, sans-serif",
+        fontSize   = "12px",
         padding    = "4px 6px"
       )
     ),

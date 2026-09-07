@@ -12,7 +12,6 @@ format:
     fig-dpi: 150
     fig-width: 8
     fig-height: 5
-    number-sections: true
     include-in-header:
       text: |
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -181,7 +180,7 @@ tbl_mgr_season_overview <- tribble(
 
 ---
 
-# Introduction {.unnumbered}
+# Introduction
 
 ::: {style = "float: right; margin-left: 20px; margin-bottom: 10px; width: 40%;"}
 ```{r}
@@ -211,19 +210,11 @@ This document aims to provide you with an overview of how you performed this yea
 
 In @tbl-season-overview you will find a snapshot of your final stats for the season. 
 
-@sec-season-performance looks specifically at how your fortunes ~~or misfortunes~~ changed on a gameweek by gameweek basis across a number of metrics. Each section presents your information against all of the managers in the league allowing you to easily compare. Within this section you can find information on league position, captaincy, chip usage and much more.
-
-@sec-gw assess our total performance across the gameweeks
-
-@sec-player-performance dives in to how the actual players performed for all of us
-
-@sec-league-history 
-
-# Season Performance {#sec-season-performance}
+The rest of this report looks specifically at how your fortunes ~~or misfortunes~~ changed on a gameweek by gameweek basis across a number of metrics. Each section presents your information against all of the managers in the league allowing you to easily compare. Within this section you can find information on league position, captaincy, chip usage and much more.
 
 ---
 
-## League Position
+# League Position
 
 ```{r}
 #| label: position_data
@@ -455,7 +446,7 @@ tbl_league_position |>
 
 ---
 
-## Relative Performance
+# Relative Performance
 
 ```{r}
 #| label: z_scores
@@ -621,7 +612,7 @@ p
 
 ---
 
-## Score Distribution
+# Score Distribution
 
 ```{r}
 #| label: score_distribution
@@ -756,9 +747,9 @@ p
 
 ---
 
-## Captaincy
+# Captaincy
 
-### Accuracy
+## Accuracy
 
 ```{r}
 #| label: captain_accuracy
@@ -954,7 +945,7 @@ all_mgr_worst_cpt |>
 
 ```
 
-### Impact
+## Impact
 
 ```{r}
 #| label: captaincy_impact
@@ -1060,7 +1051,7 @@ p <- p |>
 p
 ```
 
-### Captain-less FPL
+## Captain-less FPL
 
 ```{r}
 #| label: captainless_fpl
@@ -1184,9 +1175,9 @@ p
 
 ---
 
-## Chips
+# Chips
 
-### Free Hit
+## Free Hit
 
 ```{r}
 #| label: free_hit
@@ -1317,7 +1308,7 @@ p <- p |>
 p
 ```
 
-### Bench Boost
+## Bench Boost
 
 ```{r}
 #| label: bench_boost
@@ -1477,7 +1468,7 @@ p <- p |>
 p
 ```
 
-### Triple Captain
+## Triple Captain
 
 ```{r}
 #| label: triple_captain
@@ -1614,7 +1605,7 @@ p
 
 ---
 
-## Squad
+# Squad
 
 ```{r}
 #| label: all_squad_overview
@@ -1716,7 +1707,7 @@ tbl_all_squad_overview |>
 
 <br>
 
-### Top Scorers
+## Top Scorers
 
 ```{r}
 #| label: top_points_players
@@ -2013,7 +2004,7 @@ plot_ly(
 
 ```
 
-### Donkeys
+## Donkeys
 
 ```{r}
 #| label: bottom_ppg_players
@@ -2140,7 +2131,7 @@ tbl_bottom_ppg_players_all |>
 
 ```
 
-### Selection Headaches
+## Selection Headaches
 
 ```{r}
 #| label: avg_pts_diff
@@ -2331,15 +2322,17 @@ tbl_all_players_diff |>
 
 ---
 
-## Transfers
+# Transfers
 
-### Activity
+## Activity
 
-In the `r season` season, each manager had 33 eligible gameweeks to use their transfers. Gameweeks are ineligible for transfers when:
+In the `r season` season, each manager had **33** eligible gameweeks to use their transfers. Gameweeks are ineligible for transfers when:
 
 - It is GW1. Transfers are unlimited up until the GW1 deadline.
-- A Free Hit has been activated (twice a season).
-- A Wildcard has been activated (twice a season).
+- A Free Hit has been activated that gameweek (twice a season).
+- A Wildcard has been activated that gameweek (twice a season).
+
+@fig-transfer-activity below shows that transfer activity for each manager across every gameweek of the `r season` season.
 
 ```{r}
 #| label: transfer_activity
@@ -2421,7 +2414,7 @@ p
 
 ```
 
-### Returns
+## Returns
 
 ```{r}
 #| label: all_transfers_roi_cumulative
@@ -2602,7 +2595,7 @@ tbl_worst_transfer_return |>
 
 ```
 
-### Rolling
+## Rolling
 
 ```{r}
 #| label: all_transfer_rolling

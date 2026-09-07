@@ -1,0 +1,282 @@
+---
+params:
+  current_season: "26_27"
+title: "<b>NYC FPL</b>"
+format:
+  dashboard:
+    
+    theme: custom.scss
+    include-in-header:
+      text: |
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: libraries
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(gt)
+library(scales)
+library(flextable)
+library(officer)
+library(reactable)
+library(reactablefmtr)
+library(tippy)
+library(htmlwidgets)
+library(htmltools)
+library(plotly)
+library(crosstalk)
+```
+
+```{r}
+#| label: functions
+
+source(here("R/dashboard_functions.R"))
+```
+
+```{r}
+#| label: load_all_seasons
+
+# Every season's .rds file lives in this folder - list them all rather than
+# reading a single one, so we have every season available to switch between.
+season_dir <- here("data", "report_data", "season")
+
+season_files <- list.files(season_dir, pattern = "\\.rds$", full.names = TRUE)
+
+# file_path_sans_ext() strips the ".rds", giving us the season id (e.g. "26_27")
+season_ids <- tools::file_path_sans_ext(basename(season_files))
+
+# set_names() pairs each file path with its season id, so map() reads every
+# file and data_all ends up as a named list: data_all[["26_27"]], data_all[["25_26"]], etc.
+data_all <- season_files |>
+  set_names(season_ids) |>
+  map(readRDS)
+```
+
+```{r}
+#| label: adding_manager_info
+
+# Same join as before, just wrapped in a function so we can apply it to
+# every season's data in one line instead of copy-pasting the imap() block.
+add_manager_info <- function(season_data) {
+  imap(season_data, \(df, name) {
+    if ("manager_id" %in% names(df) && name != "managers") {
+      left_join(df, season_data$managers, by = "manager_id")
+    } else {
+      df
+    }
+  })
+}
+
+data_all <- map(data_all, add_manager_info)
+```
+
+```{r}
+#| label: season_meta
+
+# A small lookup table: one row per season, with the internal id (e.g. "26_27")
+# and the human-readable label (e.g. "2026/27") pulled out of each season's data.
+#
+# map_chr() (rather than map() + tibble()-per-element) is deliberate here:
+# it forces every season's label to be a single string, and will error
+# immediately - naming the offending season - if any season's data is
+# malformed, instead of silently vanishing the way tibble(x = NULL) does.
+season_labels <- map_chr(data_all, \(d) d$season$season_label)
+
+season_meta <- tibble(
+  season_id    = names(season_labels),
+  season_label = unname(season_labels)
+) |>
+  arrange(desc(season_id))
+
+# Which season should be pre-selected when the page first loads.
+# Falls back to the most recent season if params$current_season isn't found.
+default_season <- if (params$current_season %in% season_meta$season_id) {
+  params$current_season
+} else {
+  season_meta$season_id[1]
+}
+```
+
+```{r}
+#| label: panel_helpers
+
+# Builds the <select> dropdown itself, with one <option> per season.
+season_options <- map2(season_meta$season_id, season_meta$season_label, \(id, label) {
+  tags$option(
+    value = id,
+    label,
+    selected = if (id == default_season) NA else NULL
+  )
+})
+
+season_selector <- tags$div(
+  class = "season-select-wrapper",
+  tags$label("Season: ", `for` = "season-select"),
+  tags$select(id = "season-select", season_options)
+)
+
+# Given a function that builds one plotly chart from one season's data,
+# this generates a hidden <div> per season, each tagged with data-season
+# so the JS below knows which one to reveal.
+render_season_panels <- function(plot_fn) {
+  panels <- pmap(season_meta, \(season_id, season_label) {
+    p <- plot_fn(data_all[[season_id]])
+    tags$div(
+      class = "season-panel",
+      `data-season` = season_id,
+      style = if (season_id != default_season) "display:none;" else NULL,
+      p
+    )
+  })
+  tagList(panels)
+}
+```
+
+## {.toolbar}
+
+```{r}
+#| label: season_selector_output
+
+season_selector
+```
+
+# League
+
+## League Position {height=45%}
+
+```{r}
+#| label: league_position
+#| title: "League Position"
+
+render_season_panels(league_position_plot)
+```
+
+## Relative Performance & GW Score Distribution {height=45%}
+
+```{r}
+#| label: relative_performance
+#| title: "Relative Performance"
+
+render_season_panels(relative_performance_plot)
+```
+
+```{r}
+#| label: gw_score_distribution
+#| title: "Gameweek Score Distribution"
+
+render_season_panels(gw_score_distribution_plot)
+```
+
+# Captaincy
+
+## Captainless FPL & Captain Accuracy {height=45%}
+
+```{r}
+#| label: captainless_fpl
+#| title: "How many points did your captains add?"
+
+render_season_panels(captainless_plot)
+```
+
+```{r}
+#| label: captain_accuracy
+#| title: "How many optimal captain picks did you make?"
+
+render_season_panels(captain_accuracy_plot)
+```
+
+## Captain Impact & Worst League Captains
+
+```{r}
+#| label: worst_captains
+#| title: "The worst captain picks of the season"
+
+render_season_panels(worst_captain_table)
+```
+
+# Chips
+
+## Points from each chip {.tabset}
+
+```{r}
+#| label: bench_boost
+#| title: "Bench Boost"
+
+render_season_panels(bench_boost_plot)
+```
+
+```{r}
+#| label: free_hit
+#| title: "Free Hit"
+
+render_season_panels(free_hit_plot)
+```
+
+```{r}
+#| label: triple_captain
+#| title: "Triple Captain"
+
+render_season_panels(triple_captain_plot)
+```
+
+# Squads
+
+# Transfers
+
+## Activity
+
+```{r}
+#| label: transfer_heatmap
+#| title: "Transfer Activity"
+
+render_season_panels(transfer_activity_heatmap)
+```
+
+# Historical
+
+# Reference
+
+#
+
+```{r}
+#| label: season_toggle_script
+#| results: asis
+
+cat('
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const select = document.getElementById("season-select");
+  if (!select) return;
+
+  select.addEventListener("change", function (e) {
+    const selected = e.target.value;
+
+    document.querySelectorAll(".season-panel").forEach(function (panel) {
+      const isMatch = panel.getAttribute("data-season") === selected;
+      panel.style.display = isMatch ? "" : "none";
+
+      // Plotly draws charts based on the size of their container at the
+      // moment they are created. A chart built while its div is
+      // display:none sees a container with zero width/height, so once we
+      // reveal it we have to explicitly tell Plotly to recalculate its size.
+      if (isMatch) {
+        panel.querySelectorAll(".js-plotly-plot").forEach(function (gd) {
+          Plotly.Plots.resize(gd);
+        });
+      }
+    });
+  });
+});
+</script>
+')
+```

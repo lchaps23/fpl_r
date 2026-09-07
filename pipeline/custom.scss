@@ -1,0 +1,133 @@
+/*-- scss:defaults --*/
+
+// This section runs BEFORE Bootstrap builds its own CSS.
+// Bootstrap's whole design system (cards, navbars, buttons, value boxes)
+// is generated from a set of Sass *variables* — by overriding them here,
+// every component that uses them picks up your colours automatically,
+// instead of you having to override each component's CSS by hand later.
+
+// Pull in Montserrat from Google Fonts, same as the Quarto report.
+// @import in Sass just splices the linked file's CSS in at this point,
+// so the @font-face rules Google serves become part of your theme.
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+
+// Core palette — named variables so you only change a colour once
+// and every rule below that references it updates together.
+$fpl-bg:          #1a1a1a;  // page background
+$fpl-surface:     #232323;  // cards, value boxes, navbar
+$fpl-surface-alt: #505050;  // borders / dividers on top of surface
+$fpl-text:        #e8e6e1;  // primary text
+$fpl-text-muted:  #bbbbbb;  // secondary/muted text
+$fpl-teal:        #5DCAA5;  // accent 1 (matches manager colour palette)
+$fpl-purple:      #7F77DD;  // accent 2
+
+// Bootstrap variables. Quarto's dashboard format reads these directly:
+// setting $body-bg/$body-color switches the whole page to dark mode
+// without needing a `[data-bs-theme="dark"]` toggle.
+$body-bg:                       $fpl-bg;
+$body-color:                    $fpl-text;
+$font-family-sans-serif:        "Montserrat", sans-serif;
+
+// Card variables control every Quarto dashboard "card" (including
+// value boxes, which are just cards with extra classes).
+$card-bg:                       $fpl-surface;
+$card-border-color:             $fpl-surface-alt;
+$card-border-radius:            0.6rem;
+$card-cap-bg:                   $fpl-surface;   // card header background
+$card-cap-color:                $fpl-text-muted;
+
+// Navbar (the bar along the top of a Quarto dashboard).
+$navbar-bg:                     $fpl-surface;
+$navbar-fg:                     $fpl-text;
+
+// Links and focus colour — Bootstrap uses $primary for buttons,
+// active nav links, and form focus rings.
+$primary:                       $fpl-teal;
+
+/*-- scss:rules --*/
+
+// This section is compiled AFTER Bootstrap, so it can add rules
+// Bootstrap has no variable for, or override specific selectors
+// Quarto dashboards generate that aren't exposed as Sass variables.
+
+// Value box numbers: Quarto renders the big number in a .value-box-value
+// span. Bootstrap has no variable for this, so it's set directly here.
+.value-box-value {
+  font-weight: 700;
+  color: $fpl-text;
+}
+
+.value-box-title {
+  color: $fpl-text-muted;
+  font-size: 0.8rem;
+}
+
+// Muted borders between dashboard sections/cards, softer than
+// Bootstrap's default, to match the flat charcoal-on-charcoal look.
+.card, .value-box {
+  border-width: 1px;
+}
+
+// Quarto's dashboard nav pills (if you use tabsets) — recolour the
+// active tab to teal instead of Bootstrap's default blue.
+.nav-pills .nav-link.active {
+  background-color: $fpl-teal;
+  color: $fpl-bg;
+}
+
+// Scrollbar styling for any scrolling cards (e.g. reactable tables) —
+// pure CSS, no Bootstrap variable involved, so it just goes here as-is.
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: $fpl-bg;
+}
+::-webkit-scrollbar-thumb {
+  background: $fpl-surface-alt;
+  border-radius: 4px;
+}
+
+// Tabset Colours
+.nav-tabs .nav-link {
+  color: #F2F2F2;
+}
+
+.nav-tabs .nav-link.active {
+  color: #F2F2F2;
+}
+
+// Season selector drop-down menu
+#season-select {
+  color: #F2F2F2;                 // text colour
+  background-color: $fpl-surface; // matches your dashboard's dark background
+  border: 1px solid #3A3A3A;      // matches your gridcolor from the plotly charts
+  font-family: "Montserrat", sans-serif;
+}
+
+// the individual items in the dropdown list, once it's open
+#season-select option {
+  color: #F2F2F2;
+  background-color: $fpl-surface;
+}
+
+// Quarto Dashboard expand icon
+.bslib-full-screen-enter {
+  color: #F2F2F2;
+}
+
+.bslib-full-screen-enter svg {
+  fill: #F2F2F2;
+}
+
+.tooltip-inner {
+  color: #F2F2F2;
+  background-color: $fpl-surface;
+}
+
+// reactable
+.reactable {
+  font-family: "Montserrat", sans-serif;
+}
+
