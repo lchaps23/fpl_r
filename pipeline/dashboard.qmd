@@ -108,6 +108,41 @@ default_season <- if (params$current_season %in% season_meta$season_id) {
 ```
 
 ```{r}
+#| label: filter_short_seasons
+
+# Given one season's list of tables (e.g. data_all[["26_27"]]), find the
+# highest gameweek_id across whichever table(s) actually contain that
+# column - so we don't have to hardcode a specific table name.
+get_max_gameweek <- function(season_data) {
+  gw_values <- season_data |>
+    keep(\(df) is.data.frame(df) && "gameweek_id" %in% names(df)) |>
+    map(\(df) df$gameweek_id) |>
+    list_c()
+
+  if (length(gw_values) == 0) {
+    return(NA_integer_)
+  }
+
+  max(gw_values, na.rm = TRUE)
+}
+
+# Add a gameweek count onto season_meta, then keep only seasons that
+# reached at least gameweek 20.
+season_meta <- season_meta |>
+  mutate(n_gameweeks = map_dbl(data_all[season_id], get_max_gameweek)) |>
+  filter(n_gameweeks >= 20)
+
+# default_season may have pointed at a season we just filtered out (e.g. the
+# current season, if it's still early and hasn't reached gameweek 20 yet) -
+# re-check it against the trimmed season_meta and fall back if needed.
+default_season <- if (default_season %in% season_meta$season_id) {
+  default_season
+} else {
+  season_meta$season_id[1]
+}
+```
+
+```{r}
 #| label: panel_helpers
 
 # Builds the <select> dropdown itself, with one <option> per season.
@@ -129,7 +164,7 @@ season_selector <- tags$div(
 # this generates a hidden <div> per season, each tagged with data-season
 # so the JS below knows which one to reveal.
 render_season_panels <- function(plot_fn) {
-  panels <- pmap(season_meta, \(season_id, season_label) {
+  panels <- pmap(season_meta, \(season_id, season_label, ...) {
     p <- plot_fn(data_all[[season_id]])
     tags$div(
       class = "season-panel",
