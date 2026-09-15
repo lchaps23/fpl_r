@@ -38,6 +38,16 @@ library(crosstalk)
 ```
 
 ```{r}
+#| label: TEST?
+
+# For development work
+# To see current season even if it's less than 20 GWs, set test to TRUE
+# For publishing, set test to FALSE
+test <- TRUE
+```
+
+
+```{r}
 #| label: functions
 
 source(here("R/dashboard_functions.R"))
@@ -128,9 +138,11 @@ get_max_gameweek <- function(season_data) {
 
 # Add a gameweek count onto season_meta, then keep only seasons that
 # reached at least gameweek 20.
+# Checks to see if test == TRUE. If it is TRUE, it will not filter, and therefore show all seasons (even current)
+# When publishing, make sure test == FALSE.
 season_meta <- season_meta |>
   mutate(n_gameweeks = map_dbl(data_all[season_id], get_max_gameweek)) |>
-  filter(n_gameweeks >= 20)
+  filter(test | n_gameweeks >= 20)
 
 # default_season may have pointed at a season we just filtered out (e.g. the
 # current season, if it's still early and hasn't reached gameweek 20 yet) -
