@@ -997,6 +997,7 @@ worst_captain_table <- function(data) {
       base_points = if_else(earned_captain == 1, points / multiplier, points)
     ) |>
     group_by(manager_id, gameweek_id) |>
+    filter(any(earned_captain == 1)) |>
     mutate(
       optimal_captain_pts = max(base_points) * multiplier,
       actual_captain_pts  = sum(points[earned_captain == 1]),
@@ -1004,7 +1005,6 @@ worst_captain_table <- function(data) {
       actual_player       = player[earned_captain == 1],
       pts_left_on_table   = optimal_captain_pts - actual_captain_pts
     ) |>
-    filter(earned_captain == 1) |>
     ungroup()
   
   all_mgr_worst_cpt <- all_cpt_optimal_actual |>
